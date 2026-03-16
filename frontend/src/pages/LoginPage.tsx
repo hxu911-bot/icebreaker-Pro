@@ -26,6 +26,11 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="absolute top-4 left-6">
+        <Link to="/landing" className="text-sm text-gray-500 hover:text-sky-600 flex items-center gap-1">
+          ← 产品介绍
+        </Link>
+      </div>
       <div className="card p-8 w-full max-w-sm">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-sky-600">Icebreaker</h1>
