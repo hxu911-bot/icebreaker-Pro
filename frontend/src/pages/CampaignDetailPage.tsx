@@ -542,7 +542,8 @@ export function CampaignDetailPage() {
 
             {campaign.candidates.length > 0 ? (
               <div className="card overflow-hidden">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[860px]">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="text-left px-4 py-2.5 font-medium text-gray-600">Name</th>
@@ -551,7 +552,7 @@ export function CampaignDetailPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-gray-600">Status</th>
                       <th className="text-left px-4 py-2.5 font-medium text-gray-600">Reply</th>
                       <th className="text-left px-4 py-2.5 font-medium text-gray-600">Text Preview</th>
-                      <th className="px-4 py-2.5"></th>
+                      <th className="px-4 py-2.5 whitespace-nowrap"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -611,7 +612,7 @@ export function CampaignDetailPage() {
                               ) : <span className="text-gray-300 text-xs">—</span>}
                             </td>
                             <td className="px-4 py-2.5 text-gray-500 text-xs max-w-xs truncate">{c.rawText.substring(0, 80)}...</td>
-                            <td className="px-4 py-2.5">
+                            <td className="px-4 py-2.5 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <button
                                   className={`text-xs font-bold ${c.recruiterNote ? 'text-purple-600 hover:text-purple-800' : 'text-green-500 hover:text-green-600'}`}
@@ -669,6 +670,7 @@ export function CampaignDetailPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             ) : (
               <div className="text-center py-10 card text-gray-500">

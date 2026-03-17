@@ -45,7 +45,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
         {children}
       </main>
       <footer className="py-3 text-center text-xs text-gray-400 border-t border-gray-100">
