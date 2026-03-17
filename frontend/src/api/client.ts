@@ -70,6 +70,7 @@ export const parseApi = {
     fd.append('file', file);
     return api.post('/api/parse-csv/', fd);
   },
+  urls: (urls: string[]) => api.post('/api/parse/urls', { urls }),
 };
 
 // Generate

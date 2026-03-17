@@ -19,8 +19,12 @@ const STATUS_BADGE: Record<string, string> = {
 const STYLES = ['PROFESSIONAL', 'WARM', 'CONCISE', 'STORYTELLING'] as const;
 
 function CandidateSourceSelector({ onAdd }: { onAdd: (candidates: any[]) => void }) {
-  const [mode, setMode] = useState<'csv' | 'paste' | 'file'>('csv');
+  const { t } = useT();
+  const d = t.detail;
+  const [mode, setMode] = useState<'csv' | 'paste' | 'file' | 'url'>('csv');
   const [pasteText, setPasteText] = useState('');
+  const [urlText, setUrlText] = useState('');
+  const [urlResults, setUrlResults] = useState<{ ok: number; fail: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [parseProgress, setParseProgress] = useState('');
   const [error, setError] = useState('');
@@ -55,6 +59,24 @@ function CandidateSourceSelector({ onAdd }: { onAdd: (candidates: any[]) => void
     setPasteText('');
   }
 
+  async function handleUrls() {
+    const urls = urlText.split('\n').map(u => u.trim()).filter(u => u.startsWith('http'));
+    if (!urls.length) return;
+    setLoading(true);
+    setError('');
+    setUrlResults(null);
+    try {
+      const res = await parseApi.urls(urls);
+      const successful = res.data.candidates.filter((r: any) => r.ok).map((r: any) => r.candidate);
+      const failCount = res.data.candidates.filter((r: any) => !r.ok).length;
+      if (successful.length) onAdd(successful);
+      setUrlResults({ ok: successful.length, fail: failCount });
+      if (failCount === 0) setUrlText('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Import failed');
+    } finally { setLoading(false); }
+  }
+
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -86,10 +108,10 @@ function CandidateSourceSelector({ onAdd }: { onAdd: (candidates: any[]) => void
 
   return (
     <div className="card p-4 space-y-3">
-      <div className="flex gap-1">
-        {(['csv', 'paste', 'file'] as const).map(m => (
-          <button key={m} onClick={() => setMode(m)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === m ? 'bg-sky-100 text-sky-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-            {m === 'csv' ? 'CSV / Excel' : m === 'paste' ? 'Paste Text' : 'Resume Files'}
+      <div className="flex gap-1 flex-wrap">
+        {(['csv', 'paste', 'file', 'url'] as const).map(m => (
+          <button key={m} onClick={() => { setMode(m); setUrlResults(null); setError(''); }} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === m ? 'bg-sky-100 text-sky-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            {m === 'csv' ? d.csvExcel : m === 'paste' ? d.pasteText : m === 'file' ? d.resumeFiles : d.websiteUrls}
           </button>
         ))}
       </div>
@@ -134,6 +156,32 @@ function CandidateSourceSelector({ onAdd }: { onAdd: (candidates: any[]) => void
           {loading && parseProgress && <p className="text-xs text-sky-600">{parseProgress}</p>}
         </div>
       )}
+      {mode === 'url' && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">{d.urlsHint}</p>
+          <textarea
+            className="input h-36 resize-none font-mono text-xs"
+            placeholder={d.urlsPlaceholder}
+            value={urlText}
+            onChange={(e) => setUrlText(e.target.value)}
+          />
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-primary"
+              onClick={handleUrls}
+              disabled={loading || !urlText.trim()}
+            >
+              {loading ? d.urlsImporting : d.urlsImport}
+            </button>
+            {urlResults && (
+              <span className={`text-sm font-medium ${urlResults.fail > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                {d.urlsResult(urlResults.ok, urlResults.fail)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-red-600 text-sm">{error}</p>}
     </div>
   );
