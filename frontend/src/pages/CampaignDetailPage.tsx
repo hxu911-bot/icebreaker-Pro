@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { campaignsApi, profilesApi, parseApi, generateApi, sendApi } from '../api/client';
@@ -290,6 +290,8 @@ export function CampaignDetailPage() {
   // Inline email editing
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [editingEmailValue, setEditingEmailValue] = useState('');
+  // Generate tab: selected candidates
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   // Feature 1: cooldown warnings from 409
   const [cooldownWarnings, setCooldownWarnings] = useState<CooldownWarning[]>([]);
 
@@ -345,8 +347,16 @@ export function CampaignDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns', id] }),
   });
 
+  // Auto-select un-generated candidates when entering generate tab
+  useEffect(() => {
+    if (tab === 'generate' && campaign) {
+      const ungenerated = campaign.candidates.filter(c => c.emails.length === 0).map(c => c.id);
+      setSelectedCandidateIds(new Set(ungenerated));
+    }
+  }, [tab, campaign?.candidates.length]);
+
   const generate = useMutation({
-    mutationFn: () => generateApi.campaign(id!),
+    mutationFn: () => generateApi.campaign(id!, Array.from(selectedCandidateIds)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['campaigns', id] }); setTab('review'); },
   });
 
@@ -672,21 +682,9 @@ export function CampaignDetailPage() {
         {tab === 'generate' && (
           <div className="space-y-4">
             <div className="card p-5 space-y-4">
-              <h2 className="font-semibold">Generate Emails</h2>
-              <p className="text-xs text-gray-500">Email style will be automatically matched to each candidate's background.</p>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-sky-600">{campaign.candidates.length}</div>
-                  <div className="text-xs text-gray-500 mt-1">Candidates</div>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-sky-600">{campaign.emailCount}</div>
-                  <div className="text-xs text-gray-500 mt-1">Variants each</div>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-sky-600">{campaign.candidates.length * campaign.emailCount}</div>
-                  <div className="text-xs text-gray-500 mt-1">Total emails</div>
-                </div>
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold">{d.generateEmails}</h2>
+                <p className="text-xs text-gray-400">{selectedCandidateIds.size} / {campaign.candidates.length} selected · {selectedCandidateIds.size * campaign.emailCount} emails</p>
               </div>
 
               {!campaign.profile && (
@@ -695,32 +693,66 @@ export function CampaignDetailPage() {
                 </div>
               )}
 
+              {/* Candidate checklist */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                  <span className="text-xs font-medium text-gray-500">{d.candidates}</span>
+                  <div className="flex gap-3">
+                    <button className="text-xs text-sky-500 hover:text-sky-700" onClick={() => setSelectedCandidateIds(new Set(campaign.candidates.map(c => c.id)))}>{d.selectAll}</button>
+                    <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setSelectedCandidateIds(new Set())}>{d.deselectAll}</button>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+                  {campaign.candidates.length === 0 ? (
+                    <p className="text-sm text-gray-400 px-4 py-6 text-center">{d.noCandidates}</p>
+                  ) : campaign.candidates.map(c => {
+                    const checked = selectedCandidateIds.has(c.id);
+                    const hasEmails = c.emails.length > 0;
+                    const isSent = c.status === 'SENT';
+                    const isGenerating = c.status === 'GENERATING';
+                    return (
+                      <label key={c.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const next = new Set(selectedCandidateIds);
+                            e.target.checked ? next.add(c.id) : next.delete(c.id);
+                            setSelectedCandidateIds(next);
+                          }}
+                          className="rounded border-gray-300 text-sky-600"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-gray-800">{c.name || '—'}</span>
+                          {c.email && <span className="text-xs text-gray-400 ml-2">{c.email}</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isGenerating && <span className={STATUS_BADGE.GENERATING}>{c.status}</span>}
+                          {isSent && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">已发送</span>}
+                          {hasEmails && !isSent && !isGenerating && <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">已生成</span>}
+                          {!hasEmails && !isGenerating && <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">待生成</span>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               {campaign.status === 'GENERATING' && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sky-600">
-                    <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm">Generating emails... This may take a moment.</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {campaign.candidates.map(c => (
-                      <div key={c.id} className="flex items-center gap-2 text-xs">
-                        <span className={STATUS_BADGE[c.status] || 'badge-pending'}>{c.status}</span>
-                        <span className="text-gray-600">{c.name || c.rawText.substring(0, 40) + '...'}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-2 text-sky-600">
+                  <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">{d.generating}</span>
                 </div>
               )}
 
               <button
                 className="btn-primary"
                 onClick={() => generate.mutate()}
-                disabled={campaign.candidates.length === 0 || !campaign.profile || generate.isPending || campaign.status === 'GENERATING'}
+                disabled={selectedCandidateIds.size === 0 || !campaign.profile || generate.isPending || campaign.status === 'GENERATING'}
               >
-                {generate.isPending || campaign.status === 'GENERATING' ? d.generating : d.startGenerate}
+                {generate.isPending || campaign.status === 'GENERATING' ? d.generating : d.generateSelected(selectedCandidateIds.size)}
               </button>
               {generate.isError && <p className="text-red-600 text-sm">{(generate.error as any)?.response?.data?.error}</p>}
-              {campaign.status === 'GENERATED' && <p className="text-green-600 text-sm">Generation complete. Review emails in the Review tab.</p>}
             </div>
           </div>
         )}

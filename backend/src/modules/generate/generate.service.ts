@@ -163,7 +163,7 @@ async function generateOneCandidate(
   }
 }
 
-export async function generateForCampaign(campaignId: string, dashscopeKey: string) {
+export async function generateForCampaign(campaignId: string, dashscopeKey: string, candidateIds?: string[]) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
     include: { profile: true, candidates: true },
@@ -174,12 +174,19 @@ export async function generateForCampaign(campaignId: string, dashscopeKey: stri
   const openai = createClient(dashscopeKey);
   const profile = campaign.profile;
 
+  // Filter to selected candidates if provided, otherwise all
+  const targets = candidateIds && candidateIds.length > 0
+    ? campaign.candidates.filter(c => candidateIds.includes(c.id))
+    : campaign.candidates;
+
+  if (targets.length === 0) throw new AppError(422, 'No candidates selected');
+
   await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'GENERATING' } });
 
   // Process candidates in parallel batches to speed up generation
   const results: Array<{ candidateId: string; success: boolean; error?: string }> = [];
-  for (let i = 0; i < campaign.candidates.length; i += CONCURRENCY) {
-    const batch = campaign.candidates.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    const batch = targets.slice(i, i + CONCURRENCY);
     const batchResults = await Promise.all(
       batch.map(c => generateOneCandidate(openai, c as any, profile, campaign))
     );

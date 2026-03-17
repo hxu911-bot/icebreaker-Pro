@@ -8,7 +8,8 @@ export const generateRouter = Router();
 generateRouter.post('/campaign/:campaignId', authenticate, async (req, res, next) => {
   try {
     if (!req.user!.dashscopeKey) return next(new UnprocessableError('请先在设置中添加 DashScope Key'));
-    const results = await svc.generateForCampaign(req.params.campaignId, req.user!.dashscopeKey!);
+    const { candidateIds } = req.body as { candidateIds?: string[] };
+    const results = await svc.generateForCampaign(req.params.campaignId, req.user!.dashscopeKey!, candidateIds);
     res.json({ results });
   } catch (e) { next(e); }
 });

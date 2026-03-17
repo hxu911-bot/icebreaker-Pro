@@ -76,7 +76,7 @@ export const parseApi = {
 
 // Generate
 export const generateApi = {
-  campaign: (campaignId: string) => api.post(`/api/generate/campaign/${campaignId}`),
+  campaign: (campaignId: string, candidateIds?: string[]) => api.post(`/api/generate/campaign/${campaignId}`, { candidateIds }),
   approveEmail: (emailId: string) => api.put(`/api/generate/emails/${emailId}/approve`),
   unapproveEmail: (emailId: string) => api.put(`/api/generate/emails/${emailId}/unapprove`),
   updateEmail: (emailId: string, subject: string, body: string) => api.put(`/api/generate/emails/${emailId}`, { subject, body }),
