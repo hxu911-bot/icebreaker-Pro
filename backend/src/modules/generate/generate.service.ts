@@ -74,34 +74,93 @@ async function generateSingle(openai: OpenAI, params: {
           content: `[MANDATORY LANGUAGE RULE — MUST FOLLOW]: ${langInstruction}
 
 You are an expert recruitment email writer. Generate a highly personalized outreach email.
-Reference specific details from the candidate's background. Return ONLY valid JSON: {"subject": "...", "body": "..."}
+Reference specific details from the candidate's background.
+
+STRICT RULES YOU MUST FOLLOW:
+1. The sender's name is EXACTLY "${senderName}". Never translate it, never convert it to Chinese characters, never invent an alternative form. Use it as-is.
+2. Do NOT write a signature block at the end of the body — the signature will be appended automatically after you respond.
+3. Return ONLY valid JSON: {"subject": "...", "body": "..."}
 
 [REMINDER]: ${langInstruction}`,
         },
         {
           role: 'user',
           content: `SENDER: ${senderName}, ${senderTitle} at ${senderCompany} (${senderRole})
-SIGNATURE: ${senderSignature}${senderNote ? '\nNOTE: ' + senderNote : ''}
+SENDER CONTEXT (do NOT copy into body verbatim): ${senderSignature}${senderNote ? '\nNOTE: ' + senderNote : ''}
 
 CANDIDATE:
 ${candidateText}
 ${recruiterNote ? `\n[RECRUITER'S PERSONAL OBSERVATION — WEAVE NATURALLY]: ${recruiterNote}` : ''}
-ROLE: ${jobTitle || 'infer from background'}
+ROLE TO RECRUIT FOR: ${jobTitle || 'infer from background'}
 STYLE: ${style} - ${STYLE_DESCRIPTIONS[style] || ''}
 ANGLE: ${angleHint}
 
 [LANGUAGE — NON-NEGOTIABLE]: ${langInstruction}
+[NAME RULE]: Sender name is "${senderName}" — use exactly as written, no translation.
+[SIGNATURE RULE]: Do NOT include a signature block at the end of the body.
 
 Return JSON: {"subject": "...", "body": "..."}`,
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.8,
+      temperature: 0.7,
     });
   } catch (err) { handleError(err); }
 
   const content = response!.choices[0]?.message?.content || '{}';
-  try { return JSON.parse(content); } catch { return { subject: '', body: content }; }
+  let parsed: { subject: string; body: string };
+  try { parsed = JSON.parse(content); } catch { parsed = { subject: '', body: content }; }
+
+  // Always append signature programmatically — never rely on the model to include it
+  parsed.body = (parsed.body || '').trimEnd() + '\n\n' + senderSignature;
+  return parsed;
+}
+
+const CONCURRENCY = 3;
+
+async function generateOneCandidate(
+  openai: OpenAI,
+  candidate: { id: string; rawText: string; recruiterNote?: string | null },
+  profile: { name: string; title: string; company: string; role: string; signature: string; personalNote?: string | null },
+  campaign: { emailCount: number; language: string; jobTitle?: string | null },
+): Promise<{ candidateId: string; success: boolean; error?: string }> {
+  try {
+    await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'GENERATING' } });
+
+    const count = campaign.emailCount as 1 | 2 | 3;
+    const bestStyle = detectBestStyle(candidate.rawText);
+    const styles = Array.from({ length: count }, () => bestStyle);
+
+    const emails = await Promise.all(
+      Array.from({ length: count }, (_, idx) =>
+        generateSingle(openai, {
+          candidateText: candidate.rawText,
+          senderName: profile.name, senderTitle: profile.title,
+          senderCompany: profile.company, senderRole: profile.role,
+          senderSignature: profile.signature, senderNote: profile.personalNote || undefined,
+          recruiterNote: candidate.recruiterNote || undefined,
+          style: styles[idx] || styles[0],
+          language: campaign.language,
+          jobTitle: campaign.jobTitle || undefined,
+          angleHint: ANGLE_HINTS[idx] || ANGLE_HINTS[0],
+        })
+      )
+    );
+
+    await prisma.generatedEmail.createMany({
+      data: emails.map((e, idx) => ({
+        candidateId: candidate.id,
+        subject: e.subject || '',
+        body: e.body || '',
+        style: styles[idx] || styles[0],
+      })),
+    });
+    await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'GENERATED' } });
+    return { candidateId: candidate.id, success: true };
+  } catch (err: any) {
+    await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'ERROR' } });
+    return { candidateId: candidate.id, success: false, error: err.message };
+  }
 }
 
 export async function generateForCampaign(campaignId: string, dashscopeKey: string) {
@@ -114,50 +173,17 @@ export async function generateForCampaign(campaignId: string, dashscopeKey: stri
 
   const openai = createClient(dashscopeKey);
   const profile = campaign.profile;
-  const results: Array<{ candidateId: string; success: boolean; error?: string }> = [];
 
   await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'GENERATING' } });
 
-  for (let i = 0; i < campaign.candidates.length; i++) {
-    const candidate = campaign.candidates[i];
-    try {
-      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'GENERATING' } });
-
-      // Auto-detect best style for each candidate, apply same style to all variants
-      const count = campaign.emailCount as 1 | 2 | 3;
-      const bestStyle = detectBestStyle(candidate.rawText);
-      const styles = Array.from({ length: count }, () => bestStyle);
-
-      const emails = await Promise.all(
-        Array.from({ length: count }, (_, idx) =>
-          generateSingle(openai, {
-            candidateText: candidate.rawText,
-            senderName: profile.name, senderTitle: profile.title,
-            senderCompany: profile.company, senderRole: profile.role,
-            senderSignature: profile.signature, senderNote: profile.personalNote || undefined,
-            recruiterNote: (candidate as any).recruiterNote || undefined,
-            style: styles[idx] || styles[0],
-            language: campaign.language,
-            jobTitle: campaign.jobTitle || undefined,
-            angleHint: ANGLE_HINTS[idx] || ANGLE_HINTS[0],
-          })
-        )
-      );
-
-      await prisma.generatedEmail.createMany({
-        data: emails.map((e, idx) => ({
-          candidateId: candidate.id,
-          subject: e.subject || '',
-          body: e.body || '',
-          style: styles[idx] || styles[0],
-        })),
-      });
-      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'GENERATED' } });
-      results.push({ candidateId: candidate.id, success: true });
-    } catch (err: any) {
-      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'ERROR' } });
-      results.push({ candidateId: candidate.id, success: false, error: err.message });
-    }
+  // Process candidates in parallel batches to speed up generation
+  const results: Array<{ candidateId: string; success: boolean; error?: string }> = [];
+  for (let i = 0; i < campaign.candidates.length; i += CONCURRENCY) {
+    const batch = campaign.candidates.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(c => generateOneCandidate(openai, c as any, profile, campaign))
+    );
+    results.push(...batchResults);
   }
 
   await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'GENERATED' } });
