@@ -85,3 +85,8 @@ export const generateApi = {
 export const sendApi = {
   campaign: (campaignId: string, force = false) => api.post(`/api/send/campaign/${campaignId}`, { force }),
 };
+
+// Admin
+export const adminApi = {
+  getStats: () => api.get('/api/admin/stats'),
+};

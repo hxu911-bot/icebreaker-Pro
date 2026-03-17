@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { campaignsApi, profilesApi, parseApi, generateApi, sendApi } from '../api/client';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Campaign, Candidate, GeneratedEmail, SenderProfile, ContactHistoryEntry, CooldownWarning } from '../types';
+import { useT } from '../lib/i18n';
 
 type Tab = 'candidates' | 'generate' | 'review' | 'send';
 
@@ -145,6 +146,8 @@ function EmailReviewCard({ email, candidateName, onApprove, onEdit, onRestyle }:
   onEdit: (subject: string, body: string) => void;
   onRestyle: (style: string) => void;
 }) {
+  const { t } = useT();
+  const d = t.detail;
   const [editing, setEditing] = useState(false);
   const [editSubject, setEditSubject] = useState(email.subject);
   const [editBody, setEditBody] = useState(email.body);
@@ -172,12 +175,12 @@ function EmailReviewCard({ email, candidateName, onApprove, onEdit, onRestyle }:
             onClick={() => onApprove(!email.approved)}
             className={`text-xs px-2 py-1 rounded border transition-colors ${email.approved ? 'border-green-400 bg-green-100 text-green-700' : 'border-gray-200 bg-white text-gray-600 hover:border-sky-300'}`}
           >
-            {email.approved ? 'Unapprove' : 'Approve'}
+            {email.approved ? d.unapprove : d.approve}
           </button>
           {!editing ? (
-            <button className="text-xs px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" onClick={() => setEditing(true)}>Edit</button>
+            <button className="text-xs px-2 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" onClick={() => setEditing(true)}>{d.edit}</button>
           ) : (
-            <button className="text-xs px-2 py-1 rounded border border-sky-300 bg-sky-50 text-sky-700" onClick={saveEdit}>Save</button>
+            <button className="text-xs px-2 py-1 rounded border border-sky-300 bg-sky-50 text-sky-700" onClick={saveEdit}>{d.saveEdit}</button>
           )}
           {!editing && (
             <div className="relative">
@@ -187,7 +190,7 @@ function EmailReviewCard({ email, candidateName, onApprove, onEdit, onRestyle }:
               >
                 {email.style && email.style !== 'AUTO'
                   ? email.style.charAt(0) + email.style.slice(1).toLowerCase()
-                  : 'Style'} ▾
+                  : d.style} ▾
               </button>
               {showRestyle && (
                 <div className="absolute right-0 top-8 z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5 min-w-40">
@@ -227,6 +230,8 @@ export function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { t } = useT();
+  const d = t.detail;
   const [tab, setTab] = useState<Tab>('candidates');
   const [sendResults, setSendResults] = useState<any[]>([]);
   const [showEdit, setShowEdit] = useState(false);
@@ -363,7 +368,7 @@ export function CampaignDetailPage() {
     },
   });
 
-  if (isLoading) return <AppLayout><div className="text-center py-16 text-gray-500">Loading...</div></AppLayout>;
+  if (isLoading) return <AppLayout><div className="text-center py-16 text-gray-500">{d.loading}</div></AppLayout>;
   if (error || !campaign) return <AppLayout><div className="text-center py-16 text-red-500">Project not found</div></AppLayout>;
 
   const allEmails = campaign.candidates.flatMap(c => c.emails.map(e => ({ ...e, candidate: c })));
@@ -448,12 +453,12 @@ export function CampaignDetailPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-gray-200">
-          {(['candidates', 'generate', 'review', 'send'] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${tab === t ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              {t === 'candidates' ? `Candidates (${campaign.candidates.length})` :
-               t === 'generate' ? 'Generate' :
-               t === 'review' ? `Review (${approvedCount} approved)` :
-               'Send'}
+          {(['candidates', 'generate', 'review', 'send'] as Tab[]).map(tab_ => (
+            <button key={tab_} onClick={() => setTab(tab_)} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${tab === tab_ ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              {tab_ === 'candidates' ? `${d.candidates} (${campaign.candidates.length})` :
+               tab_ === 'generate' ? d.generate :
+               tab_ === 'review' ? `${d.review} (${approvedCount} approved)` :
+               d.send}
             </button>
           ))}
         </div>
@@ -506,11 +511,11 @@ export function CampaignDetailPage() {
                                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                                       Replied {c.repliedAt ? new Date(c.repliedAt).toLocaleDateString() : ''}
                                     </span>
-                                    <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => toggleReply.mutate(c.id)}>Unmark</button>
+                                    <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => toggleReply.mutate(c.id)}>{d.markNotReplied}</button>
                                   </div>
                                 ) : (
                                   <button className="text-xs text-gray-500 border border-gray-200 px-2 py-0.5 rounded hover:bg-gray-50" onClick={() => toggleReply.mutate(c.id)}>
-                                    Mark Replied
+                                    {d.markReplied}
                                   </button>
                                 )
                               ) : <span className="text-gray-300 text-xs">—</span>}
@@ -553,9 +558,9 @@ export function CampaignDetailPage() {
                                       onClick={() => saveNote.mutate({ candidateId: c.id, recruiterNote: noteText })}
                                       disabled={saveNote.isPending}
                                     >
-                                      {saveNote.isPending ? 'Saving...' : 'Save Note'}
+                                      {saveNote.isPending ? d.loading : d.saveNote}
                                     </button>
-                                    <button className="btn-secondary text-xs py-1" onClick={() => setExpandedNoteId(null)}>Cancel</button>
+                                    <button className="btn-secondary text-xs py-1" onClick={() => setExpandedNoteId(null)}>{d.cancelEdit}</button>
                                     {c.recruiterNote && noteText === c.recruiterNote && (
                                       <button
                                         className="text-xs text-gray-400 hover:text-red-500 ml-auto"
@@ -632,7 +637,7 @@ export function CampaignDetailPage() {
                 onClick={() => generate.mutate()}
                 disabled={campaign.candidates.length === 0 || !campaign.profile || generate.isPending || campaign.status === 'GENERATING'}
               >
-                {generate.isPending || campaign.status === 'GENERATING' ? 'Generating...' : 'Generate All Emails'}
+                {generate.isPending || campaign.status === 'GENERATING' ? d.generating : d.startGenerate}
               </button>
               {generate.isError && <p className="text-red-600 text-sm">{(generate.error as any)?.response?.data?.error}</p>}
               {campaign.status === 'GENERATED' && <p className="text-green-600 text-sm">Generation complete. Review emails in the Review tab.</p>}
@@ -759,7 +764,7 @@ export function CampaignDetailPage() {
                 onClick={() => { if (confirm(`Send ${approvedCount} approved emails to ${candidatesWithEmail} candidates?`)) send.mutate(false); }}
                 disabled={approvedCount === 0 || send.isPending}
               >
-                {send.isPending ? 'Sending...' : `Send ${approvedCount} Approved Emails`}
+                {send.isPending ? d.sending : `${d.sendAll} (${approvedCount})`}
               </button>
               {send.isError && !cooldownWarnings.length && (
                 <p className="text-red-600 text-sm">{(send.error as any)?.response?.data?.error}</p>

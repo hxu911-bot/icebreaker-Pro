@@ -7,4 +7,5 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5300',
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || '',
 };

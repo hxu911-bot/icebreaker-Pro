@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi, profilesApi } from '../api/client';
+import { settingsApi, profilesApi, adminApi } from '../api/client';
 import { AppLayout } from '../components/layout/AppLayout';
-import { SenderProfile } from '../types';
+import { SenderProfile, AdminStats } from '../types';
+import { useAuthStore } from '../store/auth';
+import { useT } from '../lib/i18n';
 
 export function SettingsPage() {
   const qc = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const { t } = useT();
+  const s = t.settings;
+  const a = t.admin;
+
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => settingsApi.get().then(r => r.data) });
   const { data: profiles = [] } = useQuery<SenderProfile[]>({ queryKey: ['profiles'], queryFn: () => profilesApi.list().then(r => r.data) });
+  const { data: adminStats, isLoading: adminLoading } = useQuery<AdminStats>({
+    queryKey: ['admin-stats'],
+    queryFn: () => adminApi.getStats().then(r => r.data),
+    enabled: !!user?.isAdmin,
+  });
 
   const [dashscopeKey, setDashscopeKey] = useState('');
   const [smtp, setSmtp] = useState({ smtpHost: '', smtpPort: '587', smtpUser: '', smtpPass: '', smtpFrom: '' });
@@ -51,63 +63,63 @@ export function SettingsPage() {
   return (
     <AppLayout>
       <div className="max-w-2xl space-y-6">
-        <h1 className="text-xl font-semibold">Settings</h1>
+        <h1 className="text-xl font-semibold">{s.title}</h1>
         {msg && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg">{msg}</div>}
 
         {/* DashScope */}
         <div className="card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">DashScope API Key</h2>
-            {settings?.hasDashscopeKey && <span className="badge-generated">Configured: {settings.dashscopeKeyPreview}</span>}
+            <h2 className="font-semibold">{s.dashscopeTitle}</h2>
+            {settings?.hasDashscopeKey && <span className="badge-generated">{s.configured}{settings.dashscopeKeyPreview}</span>}
           </div>
           <div className="flex gap-2">
-            <input className="input flex-1" type="password" placeholder="sk-..." value={dashscopeKey} onChange={(e) => setDashscopeKey(e.target.value)} />
-            <button className="btn-primary" onClick={() => saveDashscope.mutate()} disabled={!dashscopeKey}>Save</button>
+            <input className="input flex-1" type="password" placeholder={s.dashscopePlaceholder} value={dashscopeKey} onChange={(e) => setDashscopeKey(e.target.value)} />
+            <button className="btn-primary" onClick={() => saveDashscope.mutate()} disabled={!dashscopeKey}>{s.dashscopeSave}</button>
           </div>
         </div>
 
         {/* SMTP */}
         <div className="card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">SMTP Configuration</h2>
-            {settings?.hasSmtp && <span className="badge-generated">Configured: {settings.smtpHost}</span>}
+            <h2 className="font-semibold">{s.smtpTitle}</h2>
+            {settings?.hasSmtp && <span className="badge-generated">{s.configured}{settings.smtpHost}</span>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="label">SMTP Host</label>
-              <input className="input" placeholder="smtp.gmail.com" value={smtp.smtpHost} onChange={(e) => setSmtp({ ...smtp, smtpHost: e.target.value })} />
+              <label className="label">{s.smtpHost}</label>
+              <input className="input" placeholder={s.smtpHostPlaceholder} value={smtp.smtpHost} onChange={(e) => setSmtp({ ...smtp, smtpHost: e.target.value })} />
             </div>
             <div>
-              <label className="label">Port</label>
+              <label className="label">{s.smtpPort}</label>
               <input className="input" type="number" placeholder="587" value={smtp.smtpPort} onChange={(e) => setSmtp({ ...smtp, smtpPort: e.target.value })} />
             </div>
             <div>
-              <label className="label">Username</label>
-              <input className="input" placeholder="you@gmail.com" value={smtp.smtpUser} onChange={(e) => setSmtp({ ...smtp, smtpUser: e.target.value })} />
+              <label className="label">{s.smtpUser}</label>
+              <input className="input" placeholder={s.smtpUserPlaceholder} value={smtp.smtpUser} onChange={(e) => setSmtp({ ...smtp, smtpUser: e.target.value })} />
             </div>
             <div>
-              <label className="label">Password / App Password</label>
+              <label className="label">{s.smtpPass}</label>
               <input className="input" type="password" value={smtp.smtpPass} onChange={(e) => setSmtp({ ...smtp, smtpPass: e.target.value })} />
             </div>
             <div>
-              <label className="label">From Address (optional)</label>
-              <input className="input" placeholder="Your Name <you@gmail.com>" value={smtp.smtpFrom} onChange={(e) => setSmtp({ ...smtp, smtpFrom: e.target.value })} />
+              <label className="label">{s.smtpFrom}</label>
+              <input className="input" placeholder={s.smtpFromPlaceholder} value={smtp.smtpFrom} onChange={(e) => setSmtp({ ...smtp, smtpFrom: e.target.value })} />
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="btn-primary" onClick={() => saveSmtp.mutate()}>Save SMTP</button>
+            <button className="btn-primary" onClick={() => saveSmtp.mutate()}>{s.saveSmtp}</button>
             <button className="btn-secondary" onClick={testSmtp} disabled={smtpStatus === 'testing'}>
-              {smtpStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+              {smtpStatus === 'testing' ? s.testing : s.testConnection}
             </button>
-            {smtpStatus === 'ok' && <span className="text-green-600 text-sm self-center">Connected</span>}
+            {smtpStatus === 'ok' && <span className="text-green-600 text-sm self-center">{s.connected}</span>}
             {smtpStatus === 'error' && <span className="text-red-600 text-sm self-center">{smtpError}</span>}
           </div>
-          <p className="text-xs text-gray-400">For Gmail: use App Password (not account password). Enable 2FA first.</p>
+          <p className="text-xs text-gray-400">{s.smtpNote}</p>
         </div>
 
         {/* Sender Profiles */}
         <div className="card p-5 space-y-4">
-          <h2 className="font-semibold">Sender Profiles</h2>
+          <h2 className="font-semibold">{s.profilesTitle}</h2>
           {profiles.length > 0 && (
             <div className="space-y-2">
               {profiles.map((p) => (
@@ -115,30 +127,30 @@ export function SettingsPage() {
                   <div>
                     <span className="font-medium text-sm">{p.name}</span>
                     <span className="text-gray-500 text-xs ml-2">{p.title} @ {p.company}</span>
-                    {p.isDefault && <span className="ml-2 text-xs text-sky-600">default</span>}
+                    {p.isDefault && <span className="ml-2 text-xs text-sky-600">{s.default}</span>}
                   </div>
-                  <button className="text-xs text-red-500 hover:text-red-700" onClick={() => deleteProfile.mutate(p.id)}>Remove</button>
+                  <button className="text-xs text-red-500 hover:text-red-700" onClick={() => deleteProfile.mutate(p.id)}>{s.remove}</button>
                 </div>
               ))}
             </div>
           )}
           <div className="border-t pt-4 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Add Profile</p>
+            <p className="text-sm font-medium text-gray-700">{s.addProfile}</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Name *</label>
+                <label className="label">{s.name}</label>
                 <input className="input" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
               </div>
               <div>
-                <label className="label">Title *</label>
-                <input className="input" placeholder="Senior Recruiter" value={profile.title} onChange={(e) => setProfile({ ...profile, title: e.target.value })} />
+                <label className="label">{s.titleLabel}</label>
+                <input className="input" placeholder={s.titlePlaceholder} value={profile.title} onChange={(e) => setProfile({ ...profile, title: e.target.value })} />
               </div>
               <div>
-                <label className="label">Company *</label>
+                <label className="label">{s.company}</label>
                 <input className="input" value={profile.company} onChange={(e) => setProfile({ ...profile, company: e.target.value })} />
               </div>
               <div>
-                <label className="label">Role</label>
+                <label className="label">{s.role}</label>
                 <select className="input" value={profile.role} onChange={(e) => setProfile({ ...profile, role: e.target.value })}>
                   <option>Recruiter</option>
                   <option>Hiring Manager</option>
@@ -147,23 +159,88 @@ export function SettingsPage() {
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="label">Signature *</label>
-                <input className="input" placeholder="Best, John | Acme Corp" value={profile.signature} onChange={(e) => setProfile({ ...profile, signature: e.target.value })} />
+                <label className="label">{s.signature}</label>
+                <input className="input" placeholder={s.signaturePlaceholder} value={profile.signature} onChange={(e) => setProfile({ ...profile, signature: e.target.value })} />
               </div>
               <div className="col-span-2">
-                <label className="label">Personal Note (optional)</label>
-                <input className="input" placeholder="Context about your team or role..." value={profile.personalNote} onChange={(e) => setProfile({ ...profile, personalNote: e.target.value })} />
+                <label className="label">{s.personalNote}</label>
+                <input className="input" placeholder={s.personalNotePlaceholder} value={profile.personalNote} onChange={(e) => setProfile({ ...profile, personalNote: e.target.value })} />
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <input type="checkbox" id="isDefault" checked={profile.isDefault} onChange={(e) => setProfile({ ...profile, isDefault: e.target.checked })} />
-                <label htmlFor="isDefault" className="text-sm">Set as default</label>
+                <label htmlFor="isDefault" className="text-sm">{s.setDefault}</label>
               </div>
             </div>
             <button className="btn-primary" onClick={() => createProfile.mutate()} disabled={!profile.name || !profile.title || !profile.company || !profile.signature}>
-              Add Profile
+              {s.addProfileBtn}
             </button>
           </div>
         </div>
+
+        {/* Admin Stats */}
+        {user?.isAdmin && (
+          <div className="card p-5 space-y-4 border-amber-200 bg-amber-50">
+            <h2 className="font-semibold text-amber-800">🔐 {a.title}</h2>
+            {adminLoading ? (
+              <p className="text-sm text-gray-500">{a.loading}</p>
+            ) : adminStats ? (
+              <>
+                <div className="text-sm">
+                  <span className="font-medium">{a.totalUsers}:</span>{' '}
+                  <span className="text-2xl font-bold text-sky-600">{adminStats.totalUsers}</span>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">{a.userGrowth}</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="text-left px-3 py-2">{a.date}</th>
+                          <th className="text-right px-3 py-2">{a.newUsers}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminStats.userGrowth.map((row) => (
+                          <tr key={row.date} className="border-t border-gray-100 bg-white">
+                            <td className="px-3 py-2">{row.date}</td>
+                            <td className="px-3 py-2 text-right font-medium">{row.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">{a.perUserStats}</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="text-left px-3 py-2">{a.emailCol}</th>
+                          <th className="text-left px-3 py-2">{a.joinedCol}</th>
+                          <th className="text-right px-3 py-2">{a.projectsCol}</th>
+                          <th className="text-right px-3 py-2">{a.emailsCol}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminStats.perUserStats.map((row) => (
+                          <tr key={row.email} className="border-t border-gray-100 bg-white">
+                            <td className="px-3 py-2">{row.email}</td>
+                            <td className="px-3 py-2 text-gray-500">{new Date(row.createdAt).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-right">{row.projectCount}</td>
+                            <td className="px-3 py-2 text-right font-medium">{row.emailsGenerated}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

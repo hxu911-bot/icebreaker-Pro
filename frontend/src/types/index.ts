@@ -3,6 +3,13 @@ export interface User {
   email: string;
   hasDashscopeKey: boolean;
   hasSmtp: boolean;
+  isAdmin?: boolean;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  userGrowth: { date: string; count: number }[];
+  perUserStats: { email: string; createdAt: string; projectCount: number; emailsGenerated: number }[];
 }
 
 export interface SenderProfile {

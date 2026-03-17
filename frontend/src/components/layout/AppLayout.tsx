@@ -1,14 +1,16 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth';
+import { useT, LangToggle } from '../../lib/i18n';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const { t } = useT();
 
   const navItems = [
-    { label: 'Projects', href: '/' },
-    { label: 'Settings', href: '/settings' },
+    { label: t.layout.projects, href: '/' },
+    { label: t.layout.settings, href: '/settings' },
   ];
 
   return (
@@ -33,18 +35,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         </div>
-        <button
-          onClick={() => { logout(); navigate('/login'); }}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <LangToggle />
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            {t.layout.logout}
+          </button>
+        </div>
       </header>
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
         {children}
       </main>
       <footer className="py-3 text-center text-xs text-gray-400 border-t border-gray-100">
-        Icebreaker Demo — Batch AI Recruitment Emails
+        {t.layout.footer}
       </footer>
     </div>
   );

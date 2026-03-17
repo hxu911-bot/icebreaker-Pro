@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { campaignsApi, profilesApi } from '../api/client';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Campaign, SenderProfile } from '../types';
+import { useT } from '../lib/i18n';
 
 const STATUS_BADGE: Record<string, string> = {
   DRAFT: 'badge-pending',
@@ -16,6 +17,9 @@ const STATUS_BADGE: Record<string, string> = {
 export function CampaignsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { t } = useT();
+  const p = t.projects;
+
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ['campaigns'],
     queryFn: () => campaignsApi.list().then(r => r.data),
@@ -46,33 +50,33 @@ export function CampaignsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Projects</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Each project is a batch outreach job with multiple candidates</p>
+            <h1 className="text-xl font-semibold">{p.title}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{p.subtitle}</p>
           </div>
-          <button className="btn-primary" onClick={() => setShowCreate(true)}>+ New Project</button>
+          <button className="btn-primary" onClick={() => setShowCreate(true)}>{p.newProject}</button>
         </div>
 
         {showCreate && (
           <div className="card p-5 space-y-4 border-sky-200">
-            <h2 className="font-semibold">New Project</h2>
+            <h2 className="font-semibold">{p.newProjectTitle}</h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="label">Project Name *</label>
-                <input className="input" placeholder="Q1 Backend Engineers" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <label className="label">{p.projectName}</label>
+                <input className="input" placeholder={p.projectNamePlaceholder} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="label">Job Title</label>
-                <input className="input" placeholder="Senior Backend Engineer" value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} />
+                <label className="label">{p.jobTitle}</label>
+                <input className="input" placeholder={p.jobTitlePlaceholder} value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} />
               </div>
               <div>
-                <label className="label">Sender Profile</label>
+                <label className="label">{p.senderProfile}</label>
                 <select className="input" value={form.profileId} onChange={(e) => setForm({ ...form, profileId: e.target.value })}>
-                  <option value="">Select profile...</option>
-                  {profiles.map(p => <option key={p.id} value={p.id}>{p.name} @ {p.company}</option>)}
+                  <option value="">{p.selectProfile}</option>
+                  {profiles.map(pr => <option key={pr.id} value={pr.id}>{pr.name} @ {pr.company}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label">Language</label>
+                <label className="label">{p.language}</label>
                 <select className="input" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
                   <option>English</option>
                   <option>Chinese (Simplified)</option>
@@ -83,33 +87,33 @@ export function CampaignsPage() {
                 </select>
               </div>
               <div>
-                <label className="label">Emails per Candidate</label>
+                <label className="label">{p.emailsPerCandidate}</label>
                 <select className="input" value={form.emailCount} onChange={(e) => setForm({ ...form, emailCount: Number(e.target.value) })}>
-                  <option value={1}>1 variant</option>
-                  <option value={2}>2 variants</option>
-                  <option value={3}>3 variants</option>
+                  <option value={1}>1 {p.variant}</option>
+                  <option value={2}>2 {p.variant}</option>
+                  <option value={3}>3 {p.variant}</option>
                 </select>
               </div>
             </div>
             <div className="flex gap-2">
               <button className="btn-primary" onClick={() => createCampaign.mutate()} disabled={!form.name || createCampaign.isPending}>
-                {createCampaign.isPending ? 'Creating...' : 'Create & Add Candidates'}
+                {createCampaign.isPending ? p.creating : p.createBtn}
               </button>
-              <button className="btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="btn-secondary" onClick={() => setShowCreate(false)}>{p.cancel}</button>
             </div>
             {createCampaign.isError && (
-              <p className="text-red-600 text-sm">{(createCampaign.error as any)?.response?.data?.error || 'Error creating project'}</p>
+              <p className="text-red-600 text-sm">{(createCampaign.error as any)?.response?.data?.error || p.errorCreating}</p>
             )}
           </div>
         )}
 
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
+          <div className="text-center py-12 text-gray-500">{p.loading}</div>
         ) : campaigns.length === 0 ? (
           <div className="text-center py-16 card">
             <div className="text-4xl mb-3">📬</div>
-            <p className="font-medium text-gray-700">No projects yet</p>
-            <p className="text-sm text-gray-500 mt-1">Create your first project to get started</p>
+            <p className="font-medium text-gray-700">{p.noProjects}</p>
+            <p className="text-sm text-gray-500 mt-1">{p.noProjectsSub}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -123,11 +127,11 @@ export function CampaignsPage() {
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {c.jobTitle && <span className="mr-3">{c.jobTitle}</span>}
-                      {c.profile && <span className="mr-3">via {c.profile.name}</span>}
-                      <span>{c._count?.candidates || 0} candidates</span>
+                      {c.profile && <span className="mr-3">{p.via}{c.profile.name}</span>}
+                      <span>{c._count?.candidates || 0} {p.candidates}</span>
                       {(c._sentCount ?? 0) > 0 && (
                         <span className="ml-3 text-green-600 font-medium">
-                          {c._replyCount ?? 0}/{c._sentCount} replied
+                          {c._replyCount ?? 0}/{c._sentCount} {p.replied}
                         </span>
                       )}
                       <span className="ml-3">{new Date(c.createdAt).toLocaleDateString()}</span>
@@ -136,9 +140,9 @@ export function CampaignsPage() {
                 </div>
                 <button
                   className="text-xs text-red-400 hover:text-red-600 px-2 py-1"
-                  onClick={(e) => { e.stopPropagation(); if (confirm('Delete project?')) deleteCampaign.mutate(c.id); }}
+                  onClick={(e) => { e.stopPropagation(); if (confirm(p.deleteConfirm)) deleteCampaign.mutate(c.id); }}
                 >
-                  Delete
+                  {p.delete}
                 </button>
               </div>
             ))}

@@ -10,6 +10,7 @@ import { csvRouter } from './modules/parse/csv.controller';
 import { campaignsRouter } from './modules/campaigns/campaigns.controller';
 import { generateRouter } from './modules/generate/generate.controller';
 import { sendRouter } from './modules/send/send.controller';
+import { adminRouter } from './modules/admin/admin.controller';
 
 const app = express();
 app.use(cors({ origin: env.FRONTEND_URL }));
@@ -24,6 +25,7 @@ app.use('/api/parse-csv', csvRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/generate', generateRouter);
 app.use('/api/send', sendRouter);
+app.use('/api/admin', adminRouter);
 app.use(errorHandler);
 
 export default app;
