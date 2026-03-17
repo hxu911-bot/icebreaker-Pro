@@ -198,7 +198,7 @@ export function SettingsPage() {
                     <div className="px-4 py-3 bg-white border-t border-gray-100">
                       <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
                       <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
-                        {'-- \n'}{p.name} | {p.title}{'\n'}{p.company}{p.role ? ` · ${p.role}` : ''}{p.personalNote ? `\n${p.personalNote}` : ''}{'\n'}{p.signature}
+                        {'-- \n'}{p.name} | {p.title}{'\n'}{p.company}{p.personalNote ? `\n${p.personalNote}` : ''}{'\n'}{p.signature}
                       </div>
                     </div>
                   )}
@@ -236,7 +236,7 @@ export function SettingsPage() {
                       <div>
                         <p className="text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
                         <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
-                          {'-- \n'}{editForm.name} | {editForm.title}{'\n'}{editForm.company}{editForm.role ? ` · ${editForm.role}` : ''}{editForm.personalNote ? `\n${editForm.personalNote}` : ''}{'\n'}{editForm.signature}
+                          {'-- \n'}{editForm.name} | {editForm.title}{'\n'}{editForm.company}{editForm.personalNote ? `\n${editForm.personalNote}` : ''}{'\n'}{editForm.signature}
                         </div>
                       </div>
                       <div className="flex gap-2">
