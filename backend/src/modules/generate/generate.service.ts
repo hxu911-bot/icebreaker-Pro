@@ -147,6 +147,7 @@ async function generateOneCandidate(
       )
     );
 
+    await prisma.generatedEmail.deleteMany({ where: { candidateId: candidate.id } });
     await prisma.generatedEmail.createMany({
       data: emails.map((e, idx) => ({
         candidateId: candidate.id,

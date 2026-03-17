@@ -762,15 +762,18 @@ export function CampaignDetailPage() {
         {/* Tab: Review */}
         {tab === 'review' && (
           <div className="space-y-4">
+            {(() => {
+              const reviewCandidates = campaign.candidates.filter(c => c.status !== 'SENT' && c.emails.length > 0);
+              const reviewApproved = reviewCandidates.filter(c => c.emails.some(e => e.approved)).length;
+              return (<>
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">{approvedCount} of {campaign.candidates.length} candidates have an approved email.</p>
+              <p className="text-sm text-gray-600">{reviewApproved} of {reviewCandidates.length} candidates have an approved email.</p>
               <div className="flex items-center gap-3">
                 <p className="text-xs text-gray-400">Approve All selects Variant 1 for each candidate</p>
                 <button
                   className="btn-secondary text-xs"
                   onClick={() => {
-                    campaign.candidates.forEach(c => {
-                      if (c.emails.length === 0) return;
+                    reviewCandidates.forEach(c => {
                       c.emails.forEach((e, idx) => {
                         if (idx === 0 && !e.approved) approveEmail.mutate({ emailId: e.id, approved: true });
                         if (idx > 0 && e.approved) approveEmail.mutate({ emailId: e.id, approved: false });
@@ -783,7 +786,13 @@ export function CampaignDetailPage() {
               </div>
             </div>
 
-            {campaign.candidates.map(c => (
+            {reviewCandidates.length === 0 && (
+              <div className="card p-8 text-center text-gray-400 text-sm">
+                {d.noEmails}
+              </div>
+            )}
+
+            {reviewCandidates.map(c => (
               <div key={c.id} className="card overflow-hidden">
                 {/* Candidate header */}
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -835,11 +844,8 @@ export function CampaignDetailPage() {
               </div>
             ))}
 
-            {allEmails.length === 0 && (
-              <div className="text-center py-10 card text-gray-500">
-                <p>No emails generated yet. Go to the Generate tab first.</p>
-              </div>
-            )}
+            </>);
+            })()}
           </div>
         )}
 
