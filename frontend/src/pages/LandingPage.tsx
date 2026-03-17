@@ -16,6 +16,9 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <LangToggle />
+            <a href="https://icebreaker.build" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+              v1 classic ↗
+            </a>
             <Link to="/login" className="btn-secondary text-sm px-4 py-1.5">{t.common.login}</Link>
             <Link to="/register" className="btn-primary text-sm px-4 py-1.5">{l.registerBtn}</Link>
           </div>
@@ -46,6 +49,14 @@ export function LandingPage() {
                 <li className="flex items-start gap-2"><span>📋</span><span>{l.v1Items[1]}</span></li>
                 <li className="flex items-start gap-2"><span>✉️</span><span>{l.v1Items[2]}</span></li>
               </ul>
+              <a
+                href="https://icebreaker.build"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-sky-600 transition-colors"
+              >
+                icebreaker.build ↗
+              </a>
             </div>
             <div className="border border-sky-200 rounded-xl p-6 bg-sky-50">
               <div className="text-sm font-semibold text-sky-600 mb-4 uppercase tracking-wide">{l.v2Label}</div>

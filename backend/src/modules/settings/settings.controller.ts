@@ -23,6 +23,14 @@ settingsRouter.put('/smtp', authenticate, async (req: Request, res: Response, ne
   } catch (e) { next(e); }
 });
 
+settingsRouter.put('/cooldown', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { cooldownDays } = req.body;
+    await prisma.user.update({ where: { id: req.user!.id }, data: { cooldownDays: parseInt(cooldownDays) } });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
 settingsRouter.get('/', authenticate, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   res.json({
@@ -33,5 +41,6 @@ settingsRouter.get('/', authenticate, async (req: Request, res: Response) => {
     smtpPort: user!.smtpPort,
     smtpUser: user!.smtpUser,
     smtpFrom: user!.smtpFrom,
+    cooldownDays: user!.cooldownDays ?? 90,
   });
 });

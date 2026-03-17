@@ -33,6 +33,7 @@ export const settingsApi = {
   get: () => api.get('/api/settings/'),
   saveDashscope: (dashscopeKey: string) => api.put('/api/settings/dashscope', { dashscopeKey }),
   saveSmtp: (data: any) => api.put('/api/settings/smtp', data),
+  saveCooldown: (cooldownDays: number) => api.put('/api/settings/cooldown', { cooldownDays }),
   testSmtp: () => api.post('/api/send/test-smtp'),
 };
 

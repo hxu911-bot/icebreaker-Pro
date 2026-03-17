@@ -125,6 +125,14 @@ const zh = {
     remove: '移除',
     default: '默认',
   },
+  cooldown: {
+    title: '冷却保护设置',
+    label: '联系冷却期',
+    desc: '同一候选人在冷却期内再次发送邮件时会收到警告',
+    save: '保存',
+    days: '天',
+    options: { 15: '15 天', 30: '30 天', 45: '45 天', 90: '90 天（默认）' },
+  },
   admin: {
     title: '管理员统计',
     totalUsers: '总用户数',
@@ -299,6 +307,14 @@ const en: typeof zh = {
     addProfileBtn: 'Add Profile',
     remove: 'Remove',
     default: 'default',
+  },
+  cooldown: {
+    title: 'Cooldown Protection',
+    label: 'Contact Cooldown',
+    desc: 'A warning is shown when re-contacting a candidate within the cooldown period',
+    save: 'Save',
+    days: ' days',
+    options: { 15: '15 days', 30: '30 days', 45: '45 days', 90: '90 days (default)' },
   },
   admin: {
     title: 'Admin Stats',

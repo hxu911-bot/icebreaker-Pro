@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, profilesApi, adminApi } from '../api/client';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -12,6 +12,7 @@ export function SettingsPage() {
   const { t } = useT();
   const s = t.settings;
   const a = t.admin;
+  const cd = t.cooldown;
 
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: () => settingsApi.get().then(r => r.data) });
   const { data: profiles = [] } = useQuery<SenderProfile[]>({ queryKey: ['profiles'], queryFn: () => profilesApi.list().then(r => r.data) });
@@ -21,12 +22,22 @@ export function SettingsPage() {
     enabled: !!user?.isAdmin,
   });
 
+  const [cooldownDays, setCooldownDays] = useState<number>(90);
   const [dashscopeKey, setDashscopeKey] = useState('');
   const [smtp, setSmtp] = useState({ smtpHost: '', smtpPort: '587', smtpUser: '', smtpPass: '', smtpFrom: '' });
   const [smtpStatus, setSmtpStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
   const [smtpError, setSmtpError] = useState('');
   const [profile, setProfile] = useState({ name: '', title: '', company: '', role: 'Recruiter', signature: '', personalNote: '', isDefault: false });
   const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (settings?.cooldownDays) setCooldownDays(settings.cooldownDays);
+  }, [settings?.cooldownDays]);
+
+  const saveCooldown = useMutation({
+    mutationFn: () => settingsApi.saveCooldown(cooldownDays),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings'] }); setMsg('Cooldown saved'); },
+  });
 
   const saveDashscope = useMutation({
     mutationFn: () => settingsApi.saveDashscope(dashscopeKey),
@@ -75,6 +86,26 @@ export function SettingsPage() {
           <div className="flex gap-2">
             <input className="input flex-1" type="password" placeholder={s.dashscopePlaceholder} value={dashscopeKey} onChange={(e) => setDashscopeKey(e.target.value)} />
             <button className="btn-primary" onClick={() => saveDashscope.mutate()} disabled={!dashscopeKey}>{s.dashscopeSave}</button>
+          </div>
+        </div>
+
+        {/* Cooldown */}
+        <div className="card p-5 space-y-3">
+          <h2 className="font-semibold">{cd.title}</h2>
+          <p className="text-xs text-gray-500">{cd.desc}</p>
+          <div className="flex items-center gap-3">
+            <select
+              className="input w-48"
+              value={cooldownDays}
+              onChange={(e) => setCooldownDays(Number(e.target.value))}
+            >
+              {([15, 30, 45, 90] as const).map((d) => (
+                <option key={d} value={d}>{(cd.options as any)[d]}</option>
+              ))}
+            </select>
+            <button className="btn-primary" onClick={() => saveCooldown.mutate()} disabled={saveCooldown.isPending}>
+              {cd.save}
+            </button>
           </div>
         </div>
 

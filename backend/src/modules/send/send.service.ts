@@ -2,11 +2,10 @@ import nodemailer from 'nodemailer';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../shared/errors';
 
-const COOLDOWN_DAYS = 90;
-
 export async function sendCampaignEmails(campaignId: string, userId: string, force = false) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user?.smtpHost) throw new AppError(422, '请先在设置中配置 SMTP');
+  const cooldownDays = user.cooldownDays ?? 90;
 
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
@@ -22,7 +21,7 @@ export async function sendCampaignEmails(campaignId: string, userId: string, for
   if (!force) {
     const emails = campaign.candidates.map((c: any) => c.email).filter(Boolean) as string[];
     if (emails.length > 0) {
-      const cutoff = new Date(Date.now() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000);
       const recentLogs = await prisma.sendLog.findMany({
         where: {
           toEmail: { in: emails },

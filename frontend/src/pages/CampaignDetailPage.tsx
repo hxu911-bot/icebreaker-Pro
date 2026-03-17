@@ -524,7 +524,7 @@ export function CampaignDetailPage() {
                             <td className="px-4 py-2.5">
                               <div className="flex items-center gap-2">
                                 <button
-                                  className={`text-xs ${c.recruiterNote ? 'text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                  className={`text-xs font-bold ${c.recruiterNote ? 'text-purple-600 hover:text-purple-800' : 'text-green-500 hover:text-green-600'}`}
                                   onClick={() => {
                                     if (isNoteExpanded) {
                                       setExpandedNoteId(null);
