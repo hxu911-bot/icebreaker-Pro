@@ -195,11 +195,14 @@ export function SettingsPage() {
 
                   {/* Preview panel */}
                   {expandedPreviewId === p.id && (
-                    <div className="px-4 py-3 bg-white border-t border-gray-100">
-                      <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
+                    <div className="px-4 py-3 bg-white border-t border-gray-100 space-y-2">
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
                       <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
-                        {'-- \n'}{p.name} | {p.title}{'\n'}{p.company}{p.personalNote ? `\n${p.personalNote}` : ''}{'\n'}{p.signature}
+                        {p.signature || <span className="text-gray-300">（未填写签名）</span>}
                       </div>
+                      {p.personalNote && (
+                        <p className="text-xs text-gray-400">💡 Personal context (AI only, not in email): {p.personalNote}</p>
+                      )}
                     </div>
                   )}
 
@@ -233,11 +236,14 @@ export function SettingsPage() {
                         </div>
                       </div>
                       {/* Live preview */}
-                      <div>
-                        <p className="text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
                         <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
-                          {'-- \n'}{editForm.name} | {editForm.title}{'\n'}{editForm.company}{editForm.personalNote ? `\n${editForm.personalNote}` : ''}{'\n'}{editForm.signature}
+                          {editForm.signature || <span className="text-gray-300">在上方填写签名内容...</span>}
                         </div>
+                        {editForm.personalNote && (
+                          <p className="text-xs text-gray-400">💡 Personal context (AI only, not in email): {editForm.personalNote}</p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <button className="btn-primary" onClick={() => updateProfile.mutate({ id: p.id, data: editForm })} disabled={!editForm.name || !editForm.title || !editForm.company || !editForm.signature}>{s.saveChanges}</button>
