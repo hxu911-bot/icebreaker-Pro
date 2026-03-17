@@ -41,6 +41,7 @@ export const settingsApi = {
 export const profilesApi = {
   list: () => api.get('/api/profiles/'),
   create: (data: any) => api.post('/api/profiles/', data),
+  update: (id: string, data: any) => api.put(`/api/profiles/${id}`, data),
   delete: (id: string) => api.delete(`/api/profiles/${id}`),
 };
 

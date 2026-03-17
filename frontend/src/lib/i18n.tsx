@@ -124,6 +124,10 @@ const zh = {
     addProfileBtn: '添加档案',
     remove: '移除',
     default: '默认',
+    edit: '编辑',
+    preview: '预览',
+    saveChanges: '保存修改',
+    signaturePreviewTitle: '邮件签名预览',
   },
   cooldown: {
     title: '冷却保护设置',
@@ -313,6 +317,10 @@ const en: typeof zh = {
     addProfileBtn: 'Add Profile',
     remove: 'Remove',
     default: 'default',
+    edit: 'Edit',
+    preview: 'Preview',
+    saveChanges: 'Save Changes',
+    signaturePreviewTitle: 'Email Signature Preview',
   },
   cooldown: {
     title: 'Cooldown Protection',

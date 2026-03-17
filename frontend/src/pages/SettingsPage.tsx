@@ -29,6 +29,9 @@ export function SettingsPage() {
   const [smtpError, setSmtpError] = useState('');
   const [profile, setProfile] = useState({ name: '', title: '', company: '', role: 'Recruiter', signature: '', personalNote: '', isDefault: false });
   const [msg, setMsg] = useState('');
+  const [expandedPreviewId, setExpandedPreviewId] = useState<string | null>(null);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; title: string; company: string; role: string; signature: string; personalNote: string; isDefault: boolean } | null>(null);
 
   useEffect(() => {
     if (settings?.cooldownDays) setCooldownDays(settings.cooldownDays);
@@ -57,6 +60,11 @@ export function SettingsPage() {
   const deleteProfile = useMutation({
     mutationFn: (id: string) => profilesApi.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  });
+
+  const updateProfile = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => profilesApi.update(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['profiles'] }); setMsg('Profile updated'); setEditingProfileId(null); setEditForm(null); },
   });
 
   async function testSmtp() {
@@ -154,13 +162,89 @@ export function SettingsPage() {
           {profiles.length > 0 && (
             <div className="space-y-2">
               {profiles.map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <span className="font-medium text-sm">{p.name}</span>
-                    <span className="text-gray-500 text-xs ml-2">{p.title} @ {p.company}</span>
-                    {p.isDefault && <span className="ml-2 text-xs text-sky-600">{s.default}</span>}
+                <div key={p.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Profile row */}
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50">
+                    <div className="min-w-0">
+                      <span className="font-medium text-sm">{p.name}</span>
+                      <span className="text-gray-500 text-xs ml-2">{p.title} @ {p.company}</span>
+                      {p.isDefault && <span className="ml-2 text-xs text-sky-600 font-medium">{s.default}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <button
+                        className="text-xs text-sky-500 hover:text-sky-700"
+                        onClick={() => {
+                          if (expandedPreviewId === p.id) { setExpandedPreviewId(null); } else {
+                            setExpandedPreviewId(p.id); setEditingProfileId(null); setEditForm(null);
+                          }
+                        }}
+                      >{s.preview}</button>
+                      <button
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                        onClick={() => {
+                          if (editingProfileId === p.id) { setEditingProfileId(null); setEditForm(null); } else {
+                            setEditingProfileId(p.id);
+                            setEditForm({ name: p.name, title: p.title, company: p.company, role: p.role, signature: p.signature, personalNote: p.personalNote || '', isDefault: p.isDefault });
+                            setExpandedPreviewId(null);
+                          }
+                        }}
+                      >{s.edit}</button>
+                      <button className="text-xs text-red-400 hover:text-red-600" onClick={() => deleteProfile.mutate(p.id)}>{s.remove}</button>
+                    </div>
                   </div>
-                  <button className="text-xs text-red-500 hover:text-red-700" onClick={() => deleteProfile.mutate(p.id)}>{s.remove}</button>
+
+                  {/* Preview panel */}
+                  {expandedPreviewId === p.id && (
+                    <div className="px-4 py-3 bg-white border-t border-gray-100">
+                      <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
+                      <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
+                        {'-- \n'}{p.name} | {p.title}{'\n'}{p.company}{p.role ? ` · ${p.role}` : ''}{p.personalNote ? `\n${p.personalNote}` : ''}{'\n'}{p.signature}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline edit form */}
+                  {editingProfileId === p.id && editForm && (
+                    <div className="px-4 py-4 bg-white border-t border-gray-100 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="label">{s.name}</label>
+                          <input className="input" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                        </div>
+                        <div><label className="label">{s.titleLabel}</label>
+                          <input className="input" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} />
+                        </div>
+                        <div><label className="label">{s.company}</label>
+                          <input className="input" value={editForm.company} onChange={e => setEditForm({ ...editForm, company: e.target.value })} />
+                        </div>
+                        <div><label className="label">{s.role}</label>
+                          <select className="input" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
+                            <option>Recruiter</option><option>Hiring Manager</option><option>Founder</option><option>HR Partner</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2"><label className="label">{s.signature}</label>
+                          <textarea className="input resize-none" rows={3} value={editForm.signature} onChange={e => setEditForm({ ...editForm, signature: e.target.value })} />
+                        </div>
+                        <div className="col-span-2"><label className="label">{s.personalNote}</label>
+                          <textarea className="input resize-none" rows={2} placeholder={s.personalNotePlaceholder} value={editForm.personalNote} onChange={e => setEditForm({ ...editForm, personalNote: e.target.value })} />
+                        </div>
+                        <div className="col-span-2 flex items-center gap-2">
+                          <input type="checkbox" id={`isDefault-${p.id}`} checked={editForm.isDefault} onChange={e => setEditForm({ ...editForm, isDefault: e.target.checked })} />
+                          <label htmlFor={`isDefault-${p.id}`} className="text-sm">{s.setDefault}</label>
+                        </div>
+                      </div>
+                      {/* Live preview */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 mb-1 uppercase tracking-wide">{s.signaturePreviewTitle}</p>
+                        <div className="border border-dashed border-gray-200 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap font-mono bg-gray-50">
+                          {'-- \n'}{editForm.name} | {editForm.title}{'\n'}{editForm.company}{editForm.role ? ` · ${editForm.role}` : ''}{editForm.personalNote ? `\n${editForm.personalNote}` : ''}{'\n'}{editForm.signature}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="btn-primary" onClick={() => updateProfile.mutate({ id: p.id, data: editForm })} disabled={!editForm.name || !editForm.title || !editForm.company || !editForm.signature}>{s.saveChanges}</button>
+                        <button className="btn-secondary" onClick={() => { setEditingProfileId(null); setEditForm(null); }}>{t.common.cancel}</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -191,11 +275,11 @@ export function SettingsPage() {
               </div>
               <div className="col-span-2">
                 <label className="label">{s.signature}</label>
-                <input className="input" placeholder={s.signaturePlaceholder} value={profile.signature} onChange={(e) => setProfile({ ...profile, signature: e.target.value })} />
+                <textarea className="input resize-none" rows={3} placeholder={s.signaturePlaceholder} value={profile.signature} onChange={(e) => setProfile({ ...profile, signature: e.target.value })} />
               </div>
               <div className="col-span-2">
                 <label className="label">{s.personalNote}</label>
-                <input className="input" placeholder={s.personalNotePlaceholder} value={profile.personalNote} onChange={(e) => setProfile({ ...profile, personalNote: e.target.value })} />
+                <textarea className="input resize-none" rows={2} placeholder={s.personalNotePlaceholder} value={profile.personalNote} onChange={(e) => setProfile({ ...profile, personalNote: e.target.value })} />
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <input type="checkbox" id="isDefault" checked={profile.isDefault} onChange={(e) => setProfile({ ...profile, isDefault: e.target.checked })} />
