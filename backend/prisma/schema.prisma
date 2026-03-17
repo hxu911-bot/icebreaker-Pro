@@ -65,6 +65,7 @@ model Candidate {
   source        String
   status        String    @default("PENDING")
   recruiterNote String?
+  sourceUrl     String?
   replied       Boolean   @default(false)
   repliedAt     DateTime?
   createdAt     DateTime  @default(now())

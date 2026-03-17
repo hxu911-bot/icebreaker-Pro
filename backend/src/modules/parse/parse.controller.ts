@@ -98,7 +98,7 @@ parseRouter.post('/urls', authenticate, async (req: Request, res: Response, next
           email: emailMatch ? emailMatch[0] : undefined,
           rawText: text,
           source: 'url',
-          url,
+          sourceUrl: url,
         };
       })
     );
