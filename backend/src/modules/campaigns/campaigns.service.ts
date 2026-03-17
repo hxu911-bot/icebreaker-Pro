@@ -107,8 +107,8 @@ export async function deleteCandidate(candidateId: string, userId: string) {
   await prisma.candidate.delete({ where: { id: candidateId } });
 }
 
-// Feature 2: update candidate fields (recruiterNote)
-export async function updateCandidate(candidateId: string, userId: string, data: { recruiterNote?: string }) {
+// Feature 2: update candidate fields (recruiterNote, email)
+export async function updateCandidate(candidateId: string, userId: string, data: { recruiterNote?: string; email?: string }) {
   const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { campaign: true } });
   if (!candidate) throw new NotFoundError();
   if (candidate.campaign.userId !== userId) throw new ForbiddenError();

@@ -287,6 +287,9 @@ export function CampaignDetailPage() {
   // Feature 2: note editing state
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+  // Inline email editing
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [editingEmailValue, setEditingEmailValue] = useState('');
   // Feature 1: cooldown warnings from 409
   const [cooldownWarnings, setCooldownWarnings] = useState<CooldownWarning[]>([]);
 
@@ -398,6 +401,15 @@ export function CampaignDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['campaigns', id] });
       setExpandedNoteId(null);
+    },
+  });
+
+  const saveEmail = useMutation({
+    mutationFn: ({ candidateId, email }: { candidateId: string; email: string }) =>
+      campaignsApi.updateCandidate(candidateId, { email }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns', id] });
+      setEditingEmailId(null);
     },
   });
 
@@ -542,7 +554,27 @@ export function CampaignDetailPage() {
                             <td className="px-4 py-2.5 font-medium">{c.name || '—'}</td>
                             <td className="px-4 py-2.5 text-gray-600">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {c.email ? <span>{c.email}</span> : <span className="text-orange-500 text-xs">No email</span>}
+                                {editingEmailId === c.id ? (
+                                  <input
+                                    autoFocus
+                                    className="text-sm border border-sky-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-sky-400 w-48"
+                                    value={editingEmailValue}
+                                    onChange={e => setEditingEmailValue(e.target.value)}
+                                    onBlur={() => saveEmail.mutate({ candidateId: c.id, email: editingEmailValue })}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') saveEmail.mutate({ candidateId: c.id, email: editingEmailValue });
+                                      if (e.key === 'Escape') setEditingEmailId(null);
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    className={`cursor-pointer hover:underline ${c.email ? '' : 'text-orange-500 text-xs'}`}
+                                    title="Click to edit email"
+                                    onClick={() => { setEditingEmailId(c.id); setEditingEmailValue(c.email || ''); }}
+                                  >
+                                    {c.email || 'No email'}
+                                  </span>
+                                )}
                                 {history && (
                                   <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded" title={`Sent via "${history.campaignName}"`}>
                                     ⚠️ {history.daysAgo}d ago
