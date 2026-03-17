@@ -17,9 +17,9 @@ export async function sendCampaignEmails(campaignId: string, userId: string, for
   });
   if (!campaign) throw new AppError(404, 'Campaign not found');
 
-  // Cooldown check
+  // Cooldown check — only for candidates not already sent in this campaign
   if (!force) {
-    const emails = campaign.candidates.map((c: any) => c.email).filter(Boolean) as string[];
+    const emails = campaign.candidates.filter((c: any) => c.status !== 'SENT').map((c: any) => c.email).filter(Boolean) as string[];
     if (emails.length > 0) {
       const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000);
       const recentLogs = await prisma.sendLog.findMany({
@@ -66,7 +66,7 @@ export async function sendCampaignEmails(campaignId: string, userId: string, for
 
   const results: Array<{ candidateId: string; toEmail: string; status: string; error?: string }> = [];
 
-  for (const candidate of campaign.candidates) {
+  for (const candidate of campaign.candidates.filter((c: any) => c.status !== 'SENT')) {
     if (!candidate.email) {
       results.push({ candidateId: candidate.id, toEmail: '', status: 'SKIPPED_NO_EMAIL' });
       continue;
@@ -86,7 +86,7 @@ export async function sendCampaignEmails(campaignId: string, userId: string, for
       await prisma.sendLog.create({
         data: { candidateId: candidate.id, toEmail: candidate.email, subject: emailToSend.subject, status: 'SENT' },
       });
-      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'SENT' } });
+      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'SENT', sentCount: { increment: 1 } } });
       results.push({ candidateId: candidate.id, toEmail: candidate.email, status: 'SENT' });
     } catch (err: any) {
       await prisma.sendLog.create({

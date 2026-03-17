@@ -49,6 +49,9 @@ export interface Candidate {
   recruiterNote?: string;
   replied: boolean;
   repliedAt?: string;
+  sentCount: number;
+  regenRequestedAt?: string;
+  regenReason?: string;
   emails: GeneratedEmail[];
   sendLogs: SendLog[];
 }

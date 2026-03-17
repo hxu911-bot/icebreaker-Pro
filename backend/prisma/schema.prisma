@@ -66,9 +66,12 @@ model Candidate {
   status        String    @default("PENDING")
   recruiterNote String?
   sourceUrl     String?
-  replied       Boolean   @default(false)
-  repliedAt     DateTime?
-  createdAt     DateTime  @default(now())
+  replied          Boolean   @default(false)
+  repliedAt        DateTime?
+  sentCount        Int       @default(0)
+  regenRequestedAt DateTime?
+  regenReason      String?
+  createdAt        DateTime  @default(now())
   campaign      Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   emails        GeneratedEmail[]
   sendLogs      SendLog[]

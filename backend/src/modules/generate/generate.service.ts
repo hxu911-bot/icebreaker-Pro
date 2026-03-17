@@ -118,13 +118,27 @@ Return JSON: {"subject": "...", "body": "..."}`,
 
 const CONCURRENCY = 3;
 
+const REGEN_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
 async function generateOneCandidate(
   openai: OpenAI,
-  candidate: { id: string; rawText: string; recruiterNote?: string | null },
+  candidate: { id: string; rawText: string; recruiterNote?: string | null; status: string; regenRequestedAt?: Date | null },
   profile: { name: string; title: string; company: string; role: string; signature: string; personalNote?: string | null },
   campaign: { emailCount: number; language: string; jobTitle?: string | null },
 ): Promise<{ candidateId: string; success: boolean; error?: string }> {
   try {
+    // Guard: if candidate was SENT, require a valid regen request that is >= 1 hour old
+    if (candidate.status === 'SENT') {
+      if (!candidate.regenRequestedAt) {
+        return { candidateId: candidate.id, success: false, error: '未申请重新生成授权' };
+      }
+      const elapsed = Date.now() - new Date(candidate.regenRequestedAt).getTime();
+      if (elapsed < REGEN_COOLDOWN_MS) {
+        const minutesLeft = Math.ceil((REGEN_COOLDOWN_MS - elapsed) / 60000);
+        return { candidateId: candidate.id, success: false, error: `冷却期未结束，还需等待 ${minutesLeft} 分钟` };
+      }
+    }
+
     await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'GENERATING' } });
 
     const count = campaign.emailCount as 1 | 2 | 3;

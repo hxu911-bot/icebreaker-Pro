@@ -49,6 +49,11 @@ campaignsRouter.put('/candidates/:id/reply', authenticate, async (req, res, next
   try { res.json(await svc.toggleCandidateReply(req.params.id, req.user!.id)); } catch (e) { next(e); }
 });
 
+// Request re-generation for a SENT candidate (starts 1-hour cooldown)
+campaignsRouter.post('/candidates/:id/request-regen', authenticate, async (req, res, next) => {
+  try { res.json(await svc.requestRegen(req.params.id, req.user!.id, req.body.reason)); } catch (e) { next(e); }
+});
+
 // Feature 2: update candidate (recruiterNote)
 campaignsRouter.put('/candidates/:id', authenticate, async (req, res, next) => {
   try { res.json(await svc.updateCandidate(req.params.id, req.user!.id, req.body)); } catch (e) { next(e); }

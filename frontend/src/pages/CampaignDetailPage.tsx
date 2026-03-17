@@ -292,6 +292,16 @@ export function CampaignDetailPage() {
   const [editingEmailValue, setEditingEmailValue] = useState('');
   // Generate tab: selected candidates
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  // Regen request modal for SENT candidates
+  const [regenModal, setRegenModal] = useState<{ candidateId: string; name: string } | null>(null);
+  const [regenReason, setRegenReason] = useState('');
+  // Ticker to update countdowns every 30s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (tab !== 'generate') return;
+    const timer = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(timer);
+  }, [tab]);
   // Feature 1: cooldown warnings from 409
   const [cooldownWarnings, setCooldownWarnings] = useState<CooldownWarning[]>([]);
 
@@ -423,6 +433,16 @@ export function CampaignDetailPage() {
     },
   });
 
+  const requestRegen = useMutation({
+    mutationFn: ({ candidateId, reason }: { candidateId: string; reason: string }) =>
+      campaignsApi.requestRegen(candidateId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns', id] });
+      setRegenModal(null);
+      setRegenReason('');
+    },
+  });
+
   // Feature 2: regenerate single candidate
   const regenerateCandidate = useMutation({
     mutationFn: (candidateId: string) => generateApi.regenerateCandidate(candidateId),
@@ -441,9 +461,9 @@ export function CampaignDetailPage() {
   if (isLoading) return <AppLayout><div className="text-center py-16 text-gray-500">{d.loading}</div></AppLayout>;
   if (error || !campaign) return <AppLayout><div className="text-center py-16 text-red-500">Project not found</div></AppLayout>;
 
-  const allEmails = campaign.candidates.flatMap(c => c.emails.map(e => ({ ...e, candidate: c })));
-  const approvedCount = allEmails.filter(e => e.approved).length;
-  const candidatesWithEmail = campaign.candidates.filter(c => c.email).length;
+  const pendingCandidates = campaign.candidates.filter(c => c.status !== 'SENT');
+  const approvedCount = pendingCandidates.flatMap(c => c.emails).filter(e => e.approved).length;
+  const candidatesWithEmail = pendingCandidates.filter(c => c.email).length;
 
   return (
     <AppLayout>
@@ -561,8 +581,11 @@ export function CampaignDetailPage() {
                       const isNoteExpanded = expandedNoteId === c.id;
                       return (
                         <React.Fragment key={c.id}>
-                          <tr className="hover:bg-gray-50 border-b border-gray-100">
-                            <td className="px-4 py-2.5 font-medium">{c.name || '—'}</td>
+                          <tr className={`hover:bg-gray-50 border-b border-gray-100 ${c.sentCount >= 2 ? 'bg-orange-50/40' : ''}`}>
+                            <td className="px-4 py-2.5 font-medium">
+                              <span className={c.sentCount >= 2 ? 'text-orange-700' : ''}>{c.name || '—'}</span>
+                              {c.sentCount > 0 && <span className="ml-1.5 text-xs text-orange-500 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">发 {c.sentCount}次</span>}
+                            </td>
                             <td className="px-4 py-2.5 text-gray-600">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {editingEmailId === c.id ? (
@@ -712,8 +735,39 @@ export function CampaignDetailPage() {
                     const hasEmails = c.emails.length > 0;
                     const isSent = c.status === 'SENT';
                     const isGenerating = c.status === 'GENERATING';
+                    const regenRequestedMs = c.regenRequestedAt ? new Date(c.regenRequestedAt).getTime() : null;
+                    const elapsed = regenRequestedMs ? Date.now() - regenRequestedMs : null;
+                    const COOLDOWN = 60 * 60 * 1000;
+                    const regenEligible = isSent && elapsed !== null && elapsed >= COOLDOWN;
+                    const regenPending = isSent && elapsed !== null && elapsed < COOLDOWN;
+                    const regenNotRequested = isSent && !regenRequestedMs;
+                    const minutesLeft = regenPending && elapsed !== null ? Math.ceil((COOLDOWN - elapsed) / 60000) : 0;
+
+                    if (isSent && !regenEligible) {
+                      // SENT + not yet eligible: show request button or countdown
+                      return (
+                        <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 border-l-2 border-orange-300">
+                          <input type="checkbox" disabled className="rounded border-gray-200 opacity-30" />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-gray-500">{c.name || '—'}</span>
+                            {c.email && <span className="text-xs text-gray-400 ml-2">{c.email}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {c.sentCount > 0 && <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">已发 {c.sentCount}次</span>}
+                            {regenNotRequested && (
+                              <button
+                                className="text-xs text-red-500 border border-red-200 bg-red-50 px-2 py-0.5 rounded hover:bg-red-100"
+                                onClick={() => { setRegenModal({ candidateId: c.id, name: c.name || '该人选' }); setRegenReason(''); }}
+                              >申请重新生成</button>
+                            )}
+                            {regenPending && <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">冷却中 {minutesLeft}分钟后可选</span>}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <label key={c.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <label key={c.id} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 ${isGenerating ? 'opacity-50 pointer-events-none' : ''} ${regenEligible ? 'bg-orange-50' : ''}`}>
                         <input
                           type="checkbox"
                           checked={checked}
@@ -725,14 +779,15 @@ export function CampaignDetailPage() {
                           className="rounded border-gray-300 text-sky-600"
                         />
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-gray-800">{c.name || '—'}</span>
+                          <span className={`text-sm font-medium ${regenEligible ? 'text-orange-700' : 'text-gray-800'}`}>{c.name || '—'}</span>
                           {c.email && <span className="text-xs text-gray-400 ml-2">{c.email}</span>}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {c.sentCount > 0 && <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">已发 {c.sentCount}次</span>}
                           {isGenerating && <span className={STATUS_BADGE.GENERATING}>{c.status}</span>}
-                          {isSent && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">已发送</span>}
+                          {regenEligible && <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">⚠️ 可重新生成</span>}
                           {hasEmails && !isSent && !isGenerating && <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">已生成</span>}
-                          {!hasEmails && !isGenerating && <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">待生成</span>}
+                          {!hasEmails && !isGenerating && !isSent && <span className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">待生成</span>}
                         </div>
                       </label>
                     );
@@ -793,11 +848,12 @@ export function CampaignDetailPage() {
             )}
 
             {reviewCandidates.map(c => (
-              <div key={c.id} className="card overflow-hidden">
+              <div key={c.id} className={`card overflow-hidden ${c.sentCount >= 1 ? 'border-orange-300' : ''}`}>
                 {/* Candidate header */}
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div className={`px-4 py-3 border-b border-gray-200 flex items-center justify-between ${c.sentCount >= 1 ? 'bg-orange-50' : 'bg-gray-50'}`}>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{c.name || '—'}</span>
+                    <span className={`font-medium text-sm ${c.sentCount >= 1 ? 'text-orange-700' : ''}`}>{c.name || '—'}</span>
+                    {c.sentCount >= 1 && <span className="text-xs text-orange-600 bg-white border border-orange-200 px-1.5 py-0.5 rounded-full">⚠️ 第{c.sentCount + 1}次发送</span>}
                     {c.email && <span className="text-xs text-gray-400">{c.email}</span>}
                     {c.recruiterNote && (
                       <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full" title={c.recruiterNote}>
@@ -864,14 +920,14 @@ export function CampaignDetailPage() {
                   <div className="text-xs text-gray-500 mt-1">With email address</div>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-600">{campaign.candidates.length - candidatesWithEmail}</div>
+                  <div className="text-2xl font-bold text-gray-600">{pendingCandidates.length - candidatesWithEmail}</div>
                   <div className="text-xs text-gray-500 mt-1">Missing email</div>
                 </div>
               </div>
 
-              {campaign.candidates.filter(c => !c.email).length > 0 && (
+              {pendingCandidates.filter(c => !c.email).length > 0 && (
                 <div className="bg-orange-50 border border-orange-200 text-orange-800 text-sm p-3 rounded-lg">
-                  {campaign.candidates.filter(c => !c.email).length} candidate(s) have no email address and will be skipped.
+                  {pendingCandidates.filter(c => !c.email).length} candidate(s) have no email address and will be skipped.
                 </div>
               )}
 
@@ -942,6 +998,51 @@ export function CampaignDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Re-generate request modal */}
+      {regenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h3 className="font-semibold text-gray-900">重要提醒</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  <span className="font-medium text-orange-600">「{regenModal.name}」</span> 已成功发送过邮件。
+                  重复联系可能影响候选人体验，请谨慎操作。
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  提交申请后，将开始 <span className="font-medium">1小时冷却期</span>，冷却结束后才可在生成步骤中勾选该人选。
+                </p>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">重新生成的原因 <span className="text-red-500">*</span></label>
+              <textarea
+                className="input resize-none w-full"
+                rows={3}
+                placeholder="请说明为什么需要重新联系该候选人（必填）..."
+                value={regenReason}
+                onChange={e => setRegenReason(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                className="btn-primary flex-1 bg-red-500 hover:bg-red-600"
+                disabled={regenReason.trim().length < 5 || requestRegen.isPending}
+                onClick={() => requestRegen.mutate({ candidateId: regenModal.candidateId, reason: regenReason })}
+              >
+                {requestRegen.isPending ? '提交中...' : '确认申请（1小时冷却后可生成）'}
+              </button>
+              <button className="btn-secondary" onClick={() => { setRegenModal(null); setRegenReason(''); }}>取消</button>
+            </div>
+            {requestRegen.isError && (
+              <p className="text-xs text-red-500">{(requestRegen.error as any)?.response?.data?.error}</p>
+            )}
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

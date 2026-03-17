@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { NotFoundError, ForbiddenError } from '../../shared/errors';
+import { NotFoundError, ForbiddenError, AppError } from '../../shared/errors';
 
 export async function getCampaigns(userId: string) {
   const campaigns = await prisma.campaign.findMany({
@@ -157,4 +157,25 @@ export async function getContactHistory(userId: string, emails: string[]) {
     }
   }
   return result;
+}
+
+const REGEN_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+export async function requestRegen(candidateId: string, userId: string, reason: string) {
+  if (!reason?.trim()) throw new AppError(422, '请填写重新生成的原因');
+  const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { campaign: true } });
+  if (!candidate) throw new NotFoundError();
+  if (candidate.campaign.userId !== userId) throw new ForbiddenError();
+  if (candidate.status !== 'SENT') throw new AppError(422, '只有已发送的人选才需要申请重新生成');
+  if (candidate.regenRequestedAt) {
+    const elapsed = Date.now() - new Date(candidate.regenRequestedAt).getTime();
+    if (elapsed < REGEN_COOLDOWN_MS) {
+      const minutesLeft = Math.ceil((REGEN_COOLDOWN_MS - elapsed) / 60000);
+      throw new AppError(409, `冷却期未结束，还需等待 ${minutesLeft} 分钟`);
+    }
+  }
+  return prisma.candidate.update({
+    where: { id: candidateId },
+    data: { regenRequestedAt: new Date(), regenReason: reason.trim() },
+  });
 }
