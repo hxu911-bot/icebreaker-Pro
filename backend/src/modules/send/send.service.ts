@@ -86,7 +86,7 @@ export async function sendCampaignEmails(campaignId: string, userId: string, for
       await prisma.sendLog.create({
         data: { candidateId: candidate.id, toEmail: candidate.email, subject: emailToSend.subject, status: 'SENT' },
       });
-      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'SENT', sentCount: { increment: 1 } } });
+      await prisma.candidate.update({ where: { id: candidate.id }, data: { status: 'SENT', sentCount: { increment: 1 }, regenRequestedAt: null, regenReason: null } });
       results.push({ candidateId: candidate.id, toEmail: candidate.email, status: 'SENT' });
     } catch (err: any) {
       await prisma.sendLog.create({

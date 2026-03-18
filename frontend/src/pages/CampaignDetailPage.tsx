@@ -287,6 +287,9 @@ export function CampaignDetailPage() {
   // Feature 2: note editing state
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+  // Inline name editing
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
   // Inline email editing
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [editingEmailValue, setEditingEmailValue] = useState('');
@@ -424,6 +427,15 @@ export function CampaignDetailPage() {
     },
   });
 
+  const saveName = useMutation({
+    mutationFn: ({ candidateId, name }: { candidateId: string; name: string }) =>
+      campaignsApi.updateCandidate(candidateId, { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns', id] });
+      setEditingNameId(null);
+    },
+  });
+
   const saveEmail = useMutation({
     mutationFn: ({ candidateId, email }: { candidateId: string; email: string }) =>
       campaignsApi.updateCandidate(candidateId, { email }),
@@ -461,7 +473,10 @@ export function CampaignDetailPage() {
   if (isLoading) return <AppLayout><div className="text-center py-16 text-gray-500">{d.loading}</div></AppLayout>;
   if (error || !campaign) return <AppLayout><div className="text-center py-16 text-red-500">Project not found</div></AppLayout>;
 
-  const pendingCandidates = campaign.candidates.filter(c => c.status !== 'SENT');
+  const sortedCandidates = [...campaign.candidates].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+  );
+  const pendingCandidates = sortedCandidates.filter(c => c.status !== 'SENT');
   const approvedCount = pendingCandidates.flatMap(c => c.emails).filter(e => e.approved).length;
   const candidatesWithEmail = pendingCandidates.filter(c => c.email).length;
 
@@ -576,15 +591,37 @@ export function CampaignDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {campaign.candidates.map((c) => {
+                    {sortedCandidates.map((c) => {
                       const history = c.email ? contactHistory[c.email] : undefined;
                       const isNoteExpanded = expandedNoteId === c.id;
                       return (
                         <React.Fragment key={c.id}>
                           <tr className={`hover:bg-gray-50 border-b border-gray-100 ${c.sentCount >= 2 ? 'bg-orange-50/40' : ''}`}>
                             <td className="px-4 py-2.5 font-medium">
-                              <span className={c.sentCount >= 2 ? 'text-orange-700' : ''}>{c.name || '—'}</span>
-                              {c.sentCount > 0 && <span className="ml-1.5 text-xs text-orange-500 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">发 {c.sentCount}次</span>}
+                              <div className="flex flex-col gap-0.5">
+                                {editingNameId === c.id ? (
+                                  <input
+                                    autoFocus
+                                    className="text-sm border border-sky-300 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-sky-400 w-36"
+                                    value={editingNameValue}
+                                    onChange={e => setEditingNameValue(e.target.value)}
+                                    onBlur={() => saveName.mutate({ candidateId: c.id, name: editingNameValue })}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') saveName.mutate({ candidateId: c.id, name: editingNameValue });
+                                      if (e.key === 'Escape') setEditingNameId(null);
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    className={`cursor-pointer hover:underline ${c.sentCount >= 2 ? 'text-orange-700' : ''}`}
+                                    title="Click to edit name"
+                                    onClick={() => { setEditingNameId(c.id); setEditingNameValue(c.name || ''); }}
+                                  >
+                                    {c.name || '—'}
+                                  </span>
+                                )}
+                                {c.sentCount > 0 && <span className="self-start text-xs text-orange-500 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">发 {c.sentCount}次</span>}
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 text-gray-600">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -730,7 +767,7 @@ export function CampaignDetailPage() {
                 <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
                   {campaign.candidates.length === 0 ? (
                     <p className="text-sm text-gray-400 px-4 py-6 text-center">{d.noCandidates}</p>
-                  ) : campaign.candidates.map(c => {
+                  ) : sortedCandidates.map(c => {
                     const checked = selectedCandidateIds.has(c.id);
                     const hasEmails = c.emails.length > 0;
                     const isSent = c.status === 'SENT';
@@ -818,7 +855,7 @@ export function CampaignDetailPage() {
         {tab === 'review' && (
           <div className="space-y-4">
             {(() => {
-              const reviewCandidates = campaign.candidates.filter(c => c.status !== 'SENT' && c.emails.length > 0);
+              const reviewCandidates = sortedCandidates.filter(c => c.status !== 'SENT' && c.emails.length > 0);
               const reviewApproved = reviewCandidates.filter(c => c.emails.some(e => e.approved)).length;
               return (<>
             <div className="flex items-center justify-between">

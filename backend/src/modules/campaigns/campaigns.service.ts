@@ -51,7 +51,32 @@ export async function getCampaign(id: string, userId: string) {
   });
   if (!campaign) throw new NotFoundError('Campaign not found');
   if (campaign.userId !== userId) throw new ForbiddenError();
-  return campaign;
+
+  // Recalculate sentCount from sendLogs to handle candidates created before
+  // the sentCount field existed (their DB value is 0 despite having send history).
+  // Also clear regenRequestedAt if a successful send occurred after the regen request
+  // (handles existing DB records where this wasn't cleared at send time).
+  return {
+    ...campaign,
+    candidates: campaign.candidates.map(c => {
+      const sentCount = c.sendLogs.filter(log => log.status === 'SENT').length;
+      const latestSentAt = c.sendLogs
+        .filter(log => log.status === 'SENT')
+        .reduce<Date | null>((max, log) => {
+          const t = new Date(log.sentAt);
+          return max === null || t > max ? t : max;
+        }, null);
+      const regenStillPending = c.regenRequestedAt && latestSentAt
+        ? latestSentAt <= c.regenRequestedAt
+        : !!c.regenRequestedAt;
+      return {
+        ...c,
+        sentCount,
+        regenRequestedAt: regenStillPending ? c.regenRequestedAt : null,
+        regenReason: regenStillPending ? c.regenReason : null,
+      };
+    }),
+  };
 }
 
 export async function createCampaign(userId: string, data: {
@@ -107,8 +132,8 @@ export async function deleteCandidate(candidateId: string, userId: string) {
   await prisma.candidate.delete({ where: { id: candidateId } });
 }
 
-// Feature 2: update candidate fields (recruiterNote, email)
-export async function updateCandidate(candidateId: string, userId: string, data: { recruiterNote?: string; email?: string }) {
+// Feature 2: update candidate fields (name, recruiterNote, email)
+export async function updateCandidate(candidateId: string, userId: string, data: { name?: string; recruiterNote?: string; email?: string }) {
   const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { campaign: true } });
   if (!candidate) throw new NotFoundError();
   if (candidate.campaign.userId !== userId) throw new ForbiddenError();

@@ -55,7 +55,7 @@ export const campaignsApi = {
   addCandidates: (id: string, candidates: any[]) => api.post(`/api/campaigns/${id}/candidates`, { candidates }),
   deleteCandidate: (candidateId: string) => api.delete(`/api/campaigns/candidates/${candidateId}`),
   getContactHistory: (id: string) => api.get(`/api/campaigns/${id}/contact-history`),
-  updateCandidate: (candidateId: string, data: { recruiterNote?: string; email?: string }) => api.put(`/api/campaigns/candidates/${candidateId}`, data),
+  updateCandidate: (candidateId: string, data: { name?: string; recruiterNote?: string; email?: string }) => api.put(`/api/campaigns/candidates/${candidateId}`, data),
   toggleReply: (candidateId: string) => api.put(`/api/campaigns/candidates/${candidateId}/reply`),
   requestRegen: (candidateId: string, reason: string) => api.post(`/api/campaigns/candidates/${candidateId}/request-regen`, { reason }),
 };
