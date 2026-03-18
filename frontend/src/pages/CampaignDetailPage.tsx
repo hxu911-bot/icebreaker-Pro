@@ -760,7 +760,13 @@ export function CampaignDetailPage() {
                 <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
                   <span className="text-xs font-medium text-gray-500">{d.candidates}</span>
                   <div className="flex gap-3">
-                    <button className="text-xs text-sky-500 hover:text-sky-700" onClick={() => setSelectedCandidateIds(new Set(campaign.candidates.map(c => c.id)))}>{d.selectAll}</button>
+                    <button className="text-xs text-sky-500 hover:text-sky-700" onClick={() => setSelectedCandidateIds(new Set(
+                      sortedCandidates.filter(c => {
+                        if (c.status !== 'SENT') return true;
+                        const elapsed = c.regenRequestedAt ? Date.now() - new Date(c.regenRequestedAt).getTime() : null;
+                        return elapsed !== null && elapsed >= 60 * 60 * 1000;
+                      }).map(c => c.id)
+                    ))}>{d.selectAll}</button>
                     <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setSelectedCandidateIds(new Set())}>{d.deselectAll}</button>
                   </div>
                 </div>
