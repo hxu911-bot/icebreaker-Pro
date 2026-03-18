@@ -36,14 +36,44 @@ function getLanguageInstruction(language: string): string {
   return LANGUAGE_INSTRUCTION[language] || `Write the entire email in ${language}.`;
 }
 
-// Heuristic: pick best email style based on candidate background
+// Heuristic: pick best email style based on candidate background.
+// Uses a scoring approach (count keyword hits per style) to avoid first-match bias
+// where e.g. "growth" would incorrectly override engineering signals.
 function detectBestStyle(rawText: string): string {
   const t = rawText.toLowerCase();
-  if (/finance|banking|consulting|partner|director|vp |svp|cfo|coo|cto|legal|audit/.test(t)) return 'PROFESSIONAL';
-  if (/product manager|growth|marketing|brand|design|ux|ui|creative|content/.test(t)) return 'STORYTELLING';
-  if (/engineer|developer|backend|frontend|fullstack|devops|sre|infrastructure|ml |ai |llm|algorithm/.test(t)) return 'CONCISE';
-  if (/startup|founder|early.stage|seed|series a|entrepreneur/.test(t)) return 'WARM';
-  return 'PROFESSIONAL';
+  const scores: Record<string, number> = { PROFESSIONAL: 0, STORYTELLING: 0, CONCISE: 0, WARM: 0 };
+
+  const keywords: [string, string][] = [
+    // PROFESSIONAL — finance / exec / consulting
+    ['finance', 'PROFESSIONAL'], ['banking', 'PROFESSIONAL'], ['consulting', 'PROFESSIONAL'],
+    ['partner', 'PROFESSIONAL'], ['director', 'PROFESSIONAL'], ['vp ', 'PROFESSIONAL'],
+    ['svp', 'PROFESSIONAL'], ['cfo', 'PROFESSIONAL'], ['coo', 'PROFESSIONAL'],
+    ['cto', 'PROFESSIONAL'], ['legal', 'PROFESSIONAL'], ['audit', 'PROFESSIONAL'],
+    // STORYTELLING — product / marketing / creative
+    // Note: use "growth manager/lead/head" not bare "growth" to avoid false match on "growth engineer"
+    ['product manager', 'STORYTELLING'], ['product lead', 'STORYTELLING'],
+    ['growth manager', 'STORYTELLING'], ['growth lead', 'STORYTELLING'], ['head of growth', 'STORYTELLING'],
+    ['marketing', 'STORYTELLING'], ['brand', 'STORYTELLING'],
+    ['ux ', 'STORYTELLING'], ['ui ', 'STORYTELLING'], ['user experience', 'STORYTELLING'],
+    ['creative', 'STORYTELLING'], ['content', 'STORYTELLING'],
+    // CONCISE — engineering / research / technical
+    ['engineer', 'CONCISE'], ['developer', 'CONCISE'], ['backend', 'CONCISE'],
+    ['frontend', 'CONCISE'], ['fullstack', 'CONCISE'], ['full-stack', 'CONCISE'],
+    ['devops', 'CONCISE'], ['sre', 'CONCISE'], ['infrastructure', 'CONCISE'],
+    ['ml ', 'CONCISE'], ['ai ', 'CONCISE'], ['llm', 'CONCISE'],
+    ['algorithm', 'CONCISE'], ['research', 'CONCISE'], ['scientist', 'CONCISE'],
+    ['phd', 'CONCISE'], ['deep learning', 'CONCISE'],
+    // WARM — startup / founder culture
+    ['startup', 'WARM'], ['founder', 'WARM'], ['early-stage', 'WARM'],
+    ['early stage', 'WARM'], ['seed', 'WARM'], ['series a', 'WARM'], ['entrepreneur', 'WARM'],
+  ];
+
+  for (const [kw, style] of keywords) {
+    if (t.includes(kw)) scores[style]++;
+  }
+
+  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  return best[1] > 0 ? best[0] : 'PROFESSIONAL';
 }
 
 const ANGLE_HINTS = [
@@ -231,6 +261,7 @@ export async function restyleEmail(emailId: string, newStyle: string, dashscopeK
     senderName: profile.name, senderTitle: profile.title,
     senderCompany: profile.company, senderRole: profile.role,
     senderSignature: profile.signature, senderNote: profile.personalNote || undefined,
+    recruiterNote: candidate.recruiterNote || undefined,
     style: newStyle,
     language: campaign.language,
     jobTitle: campaign.jobTitle || undefined,
