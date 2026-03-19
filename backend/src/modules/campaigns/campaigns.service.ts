@@ -132,6 +132,32 @@ export async function deleteCandidate(candidateId: string, userId: string) {
   await prisma.candidate.delete({ where: { id: candidateId } });
 }
 
+// Mark a candidate as sent via an external channel (creates a SendLog tagged [EXTERNAL])
+export async function markCandidateSent(candidateId: string, userId: string) {
+  const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { campaign: true } });
+  if (!candidate) throw new NotFoundError();
+  if (candidate.campaign.userId !== userId) throw new ForbiddenError();
+  await prisma.sendLog.create({
+    data: { candidateId, toEmail: candidate.email || '—', subject: '[EXTERNAL]', status: 'SENT' },
+  });
+  return prisma.candidate.update({ where: { id: candidateId }, data: { status: 'SENT' } });
+}
+
+// Unmark: only allowed when all sendLogs are external (i.e. never system-sent)
+export async function unmarkCandidateSent(candidateId: string, userId: string) {
+  const candidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    include: { campaign: true, emails: { take: 1 }, sendLogs: true },
+  });
+  if (!candidate) throw new NotFoundError();
+  if (candidate.campaign.userId !== userId) throw new ForbiddenError();
+  const allExternal = (candidate.sendLogs as any[]).every(l => l.subject === '[EXTERNAL]');
+  if (!allExternal) throw new AppError(422, '只能取消手动标记的已发送状态');
+  await prisma.sendLog.deleteMany({ where: { candidateId, subject: '[EXTERNAL]' } });
+  const newStatus = (candidate.emails as any[]).length > 0 ? 'GENERATED' : 'PENDING';
+  return prisma.candidate.update({ where: { id: candidateId }, data: { status: newStatus } });
+}
+
 // Feature 2: update candidate fields (name, recruiterNote, email)
 export async function updateCandidate(candidateId: string, userId: string, data: { name?: string; recruiterNote?: string; email?: string }) {
   const candidate = await prisma.candidate.findUnique({ where: { id: candidateId }, include: { campaign: true } });

@@ -34,6 +34,7 @@ export interface GeneratedEmail {
 export interface SendLog {
   id: string;
   toEmail: string;
+  subject: string;
   status: string;
   error?: string;
   sentAt: string;

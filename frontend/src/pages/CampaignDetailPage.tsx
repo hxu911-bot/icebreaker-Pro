@@ -470,6 +470,22 @@ export function CampaignDetailPage() {
     },
   });
 
+  const markSent = useMutation({
+    mutationFn: (candidateId: string) => campaignsApi.markSent(candidateId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns', id] });
+      qc.invalidateQueries({ queryKey: ['campaigns'] });
+    },
+  });
+
+  const unmarkSent = useMutation({
+    mutationFn: (candidateId: string) => campaignsApi.unmarkSent(candidateId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['campaigns', id] });
+      qc.invalidateQueries({ queryKey: ['campaigns'] });
+    },
+  });
+
   if (isLoading) return <AppLayout><div className="text-center py-16 text-gray-500">{d.loading}</div></AppLayout>;
   if (error || !campaign) return <AppLayout><div className="text-center py-16 text-red-500">Project not found</div></AppLayout>;
 
@@ -654,7 +670,14 @@ export function CampaignDetailPage() {
                               </div>
                             </td>
                             <td className="px-4 py-2.5"><span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{c.source}</span></td>
-                            <td className="px-4 py-2.5"><span className={STATUS_BADGE[c.status] || 'badge-pending'}>{c.status}</span></td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={STATUS_BADGE[c.status] || 'badge-pending'}>{c.status}</span>
+                                {c.status === 'SENT' && c.sendLogs.every(l => l.subject === '[EXTERNAL]') && (
+                                  <button className="text-xs text-gray-400 hover:text-red-500" title="取消外部标记" onClick={() => unmarkSent.mutate(c.id)}>✕</button>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-2.5">
                               {c.status === 'SENT' ? (
                                 c.replied ? (
@@ -687,6 +710,9 @@ export function CampaignDetailPage() {
                                 >
                                   {c.recruiterNote ? '📝 Note' : 'Add note'}
                                 </button>
+                                {c.status !== 'SENT' && (
+                                  <button className="text-xs text-sky-500 hover:text-sky-700" onClick={() => markSent.mutate(c.id)}>标记已发</button>
+                                )}
                                 <button className="text-xs text-red-400 hover:text-red-600" onClick={() => deleteCandidate.mutate(c.id)}>Remove</button>
                               </div>
                             </td>

@@ -54,6 +54,15 @@ campaignsRouter.post('/candidates/:id/request-regen', authenticate, async (req, 
   try { res.json(await svc.requestRegen(req.params.id, req.user!.id, req.body.reason)); } catch (e) { next(e); }
 });
 
+// Mark / unmark sent via external channel
+campaignsRouter.post('/candidates/:id/mark-sent', authenticate, async (req, res, next) => {
+  try { res.json(await svc.markCandidateSent(req.params.id, req.user!.id)); } catch (e) { next(e); }
+});
+
+campaignsRouter.post('/candidates/:id/unmark-sent', authenticate, async (req, res, next) => {
+  try { res.json(await svc.unmarkCandidateSent(req.params.id, req.user!.id)); } catch (e) { next(e); }
+});
+
 // Feature 2: update candidate (recruiterNote)
 campaignsRouter.put('/candidates/:id', authenticate, async (req, res, next) => {
   try { res.json(await svc.updateCandidate(req.params.id, req.user!.id, req.body)); } catch (e) { next(e); }
